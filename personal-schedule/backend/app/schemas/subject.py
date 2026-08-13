@@ -3,21 +3,29 @@ from pydantic import BaseModel, Field
 
 
 class SubjectBase(BaseModel):
-    name: str = Field(..., min_length=1)
     code: str | None = None
-    credits: int = 0
+    name: str = Field(..., min_length=1)
+    credits: float = 0
     teacher: str | None = None
-    room: str | None = None
+    default_room: str | None = None
     color: str | None = None
     note: str | None = None
+    is_active: bool = True
 
 
 class SubjectCreate(SubjectBase):
     pass
 
 
-class SubjectUpdate(SubjectBase):
-    pass
+class SubjectUpdate(BaseModel):
+    code: str | None = None
+    name: str | None = None
+    credits: float | None = None
+    teacher: str | None = None
+    default_room: str | None = None
+    color: str | None = None
+    note: str | None = None
+    is_active: bool | None = None
 
 
 class SubjectRead(SubjectBase):
@@ -25,5 +33,4 @@ class SubjectRead(SubjectBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = {"from_attributes": True}

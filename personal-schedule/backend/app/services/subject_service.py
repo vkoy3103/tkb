@@ -21,7 +21,7 @@ def create_subject(db: Session, payload: SubjectCreate) -> Subject:
 
 
 def update_subject(db: Session, subject: Subject, payload: SubjectUpdate) -> Subject:
-    for field, value in payload.model_dump().items():
+    for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(subject, field, value)
     db.commit()
     db.refresh(subject)

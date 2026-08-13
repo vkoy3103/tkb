@@ -1,44 +1,30 @@
 from datetime import time
-from sqlalchemy.orm import Session
+
 from fastapi import HTTPException
+from sqlalchemy.orm import Session
 
 from app.models.work_shift import WorkShift
 from app.schemas.work_shift import WorkShiftCreate, WorkShiftUpdate
 
-SHIFT_TIMES = {
-    1: (time(9, 0), time(13, 0)),
-    2: (time(13, 0), time(18, 0)),
-    3: (time(18, 0), time(22, 0)),
-}
-
 
 def get_work_shifts(db: Session) -> list[WorkShift]:
-    return db.query(WorkShift).order_by(WorkShift.date, WorkShift.shift_number).all()
+    return db.query(WorkShift).order_by(WorkShift.date, WorkShift.scheduled_start).all()
 
 
 def get_work_shift(db: Session, work_shift_id: int) -> WorkShift | None:
     return db.query(WorkShift).filter(WorkShift.id == work_shift_id).first()
 
 
-def validate_actual_times(actual_start: time, actual_end: time) -> None:
-    if actual_start >= actual_end:
+def validate_shift_times(scheduled_start: time, scheduled_end: time, actual_start: time | None, actual_end: time | None) -> None:
+    if scheduled_start >= scheduled_end:
+        raise HTTPException(status_code=400, detail="scheduled_start must be before scheduled_end")
+    if actual_start is not None and actual_end is not None and actual_start >= actual_end:
         raise HTTPException(status_code=400, detail="actual_start must be before actual_end")
 
 
 def create_work_shift(db: Session, payload: WorkShiftCreate) -> WorkShift:
-    if payload.shift_number not in SHIFT_TIMES:
-        raise HTTPException(status_code=400, detail="shift_number must be 1, 2, or 3")
-    validate_actual_times(payload.actual_start, payload.actual_end)
-    scheduled_start, scheduled_end = SHIFT_TIMES[payload.shift_number]
-    work_shift = WorkShift(
-        date=payload.date,
-        shift_number=payload.shift_number,
-        scheduled_start=scheduled_start,
-        scheduled_end=scheduled_end,
-        actual_start=payload.actual_start,
-        actual_end=payload.actual_end,
-        note=payload.note,
-    )
+    validate_shift_times(payload.scheduled_start, payload.scheduled_end, payload.actual_start, payload.actual_end)
+    work_shift = WorkShift(**payload.model_dump())
     db.add(work_shift)
     db.commit()
     db.refresh(work_shift)
@@ -46,15 +32,20 @@ def create_work_shift(db: Session, payload: WorkShiftCreate) -> WorkShift:
 
 
 def update_work_shift(db: Session, work_shift: WorkShift, payload: WorkShiftUpdate) -> WorkShift:
-    validate_actual_times(payload.actual_start, payload.actual_end)
-    if payload.shift_number not in SHIFT_TIMES:
-        raise HTTPException(status_code=400, detail="shift_number must be 1, 2, or 3")
-    scheduled_start, scheduled_end = SHIFT_TIMES[payload.shift_number]
-    work_shift.scheduled_start = scheduled_start
-    work_shift.scheduled_end = scheduled_end
-    work_shift.actual_start = payload.actual_start
-    work_shift.actual_end = payload.actual_end
-    work_shift.note = payload.note
+    update_data = payload.model_dump(exclude_unset=True)
+    if "scheduled_start" in update_data or "scheduled_end" in update_data:
+        scheduled_start = update_data.get("scheduled_start", work_shift.scheduled_start)
+        scheduled_end = update_data.get("scheduled_end", work_shift.scheduled_end)
+        actual_start = update_data.get("actual_start", work_shift.actual_start)
+        actual_end = update_data.get("actual_end", work_shift.actual_end)
+        validate_shift_times(scheduled_start, scheduled_end, actual_start, actual_end)
+    elif "actual_start" in update_data or "actual_end" in update_data:
+        actual_start = update_data.get("actual_start", work_shift.actual_start)
+        actual_end = update_data.get("actual_end", work_shift.actual_end)
+        validate_shift_times(work_shift.scheduled_start, work_shift.scheduled_end, actual_start, actual_end)
+
+    for field, value in update_data.items():
+        setattr(work_shift, field, value)
     db.commit()
     db.refresh(work_shift)
     return work_shift

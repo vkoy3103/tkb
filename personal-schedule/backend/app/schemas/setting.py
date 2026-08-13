@@ -3,14 +3,18 @@ from pydantic import BaseModel, Field
 
 
 class SettingsBase(BaseModel):
-    normal_rate: int = Field(..., ge=0)
-    npc_rate: int = Field(..., ge=0)
-    ot_rate: int = Field(..., ge=0)
-    extend_rate: int = Field(..., ge=0)
+    key: str = Field(..., min_length=1)
+    value: str | None = None
+    description: str | None = None
 
 
-class SettingsUpdate(SettingsBase):
+class SettingsCreate(SettingsBase):
     pass
+
+
+class SettingsUpdate(BaseModel):
+    value: str | None = None
+    description: str | None = None
 
 
 class SettingsRead(SettingsBase):
@@ -18,5 +22,4 @@ class SettingsRead(SettingsBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = {"from_attributes": True}

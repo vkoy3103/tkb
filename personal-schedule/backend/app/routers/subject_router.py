@@ -5,7 +5,7 @@ from app.database import SessionLocal
 from app.schemas.subject import SubjectCreate, SubjectRead, SubjectUpdate
 from app.services.subject_service import create_subject, delete_subject, get_subject, get_subjects, update_subject
 
-router = APIRouter()
+router = APIRouter(prefix="/subjects", tags=["subjects"])
 
 
 def get_db():
@@ -13,34 +13,41 @@ def get_db():
         yield db
 
 
-@router.get("/subjects", response_model=list[SubjectRead])
+# ----- Subject management -----
+
+@router.get("", response_model=list[SubjectRead])
 def read_subjects(db: Session = Depends(get_db)):
+    """Get all active and inactive subjects sorted by name."""
     return get_subjects(db)
 
 
-@router.post("/subjects", response_model=SubjectRead)
+@router.post("", response_model=SubjectRead)
 def create_subject_endpoint(payload: SubjectCreate, db: Session = Depends(get_db)):
+    """Create a new subject with code, name, credits, teacher, room, and color."""
     return create_subject(db, payload)
 
 
-@router.get("/subjects/{subject_id}", response_model=SubjectRead)
+@router.get("/{subject_id}", response_model=SubjectRead)
 def read_subject(subject_id: int, db: Session = Depends(get_db)):
+    """Fetch one subject by its id."""
     subject = get_subject(db, subject_id)
     if subject is None:
         raise HTTPException(status_code=404, detail="Subject not found")
     return subject
 
 
-@router.put("/subjects/{subject_id}", response_model=SubjectRead)
+@router.put("/{subject_id}", response_model=SubjectRead)
 def update_subject_endpoint(subject_id: int, payload: SubjectUpdate, db: Session = Depends(get_db)):
+    """Update subject information such as name, credits, teacher, room, color, or status."""
     subject = get_subject(db, subject_id)
     if subject is None:
         raise HTTPException(status_code=404, detail="Subject not found")
     return update_subject(db, subject, payload)
 
 
-@router.delete("/subjects/{subject_id}")
+@router.delete("/{subject_id}")
 def delete_subject_endpoint(subject_id: int, db: Session = Depends(get_db)):
+    """Delete a subject permanently from the database."""
     subject = get_subject(db, subject_id)
     if subject is None:
         raise HTTPException(status_code=404, detail="Subject not found")

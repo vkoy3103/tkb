@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.database import DATA_DIR, SessionLocal, SQLITE_PATH
 
-router = APIRouter()
+router = APIRouter(prefix="/backups", tags=["backups"])
 
 
 def get_db():
@@ -12,8 +12,9 @@ def get_db():
         yield db
 
 
-@router.get("/backup")
+@router.get("/export")
 def export_database():
+    """Export the current SQLite database file for backup/download."""
     if not SQLITE_PATH.exists():
         raise HTTPException(status_code=404, detail="Database file not found")
     return FileResponse(path=SQLITE_PATH, filename="schedule.db", media_type="application/x-sqlite3")
@@ -21,6 +22,7 @@ def export_database():
 
 @router.post("/restore")
 def restore_database(file: UploadFile = File(...)):
+    """Restore the database from an uploaded .db or .sqlite file."""
     if not file.filename.endswith(".db") and not file.filename.endswith(".sqlite"):
         raise HTTPException(status_code=400, detail="Invalid database file")
     file_path = DATA_DIR / "schedule_restore.db"
