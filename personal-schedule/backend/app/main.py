@@ -4,6 +4,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import Base, engine
 from app.routers.backup_router import router as backup_router
+from app.routers.period_router import router as period_router
+from app.routers.schedule_override_router import router as schedule_override_router
 from app.routers.schedule_router import router as schedule_router
 from app.routers.settings_router import router as settings_router
 from app.routers.statistics_router import router as statistics_router
@@ -27,7 +29,9 @@ app.add_middleware(
 )
 
 app.include_router(subject_router, prefix="/api")
+app.include_router(period_router, prefix="/api")
 app.include_router(schedule_router, prefix="/api")
+app.include_router(schedule_override_router, prefix="/api")
 app.include_router(work_shift_router, prefix="/api")
 app.include_router(work_extra_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")

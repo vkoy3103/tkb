@@ -7,9 +7,10 @@ const defaultSubject = {
   code: '',
   credits: 0,
   teacher: '',
-  room: '',
+  default_room: '',
   color: '#22c55e',
   note: '',
+  is_active: true,
 }
 
 function formatLabel(subject: Subject) {
@@ -40,6 +41,7 @@ export default function Subjects() {
     const payload = {
       ...form,
       credits: Number(form.credits),
+      is_active: Boolean(form.is_active),
     }
     if (editingId) {
       const updated = await updateSubject(editingId, payload)
@@ -57,9 +59,10 @@ export default function Subjects() {
       code: subject.code || '',
       credits: subject.credits,
       teacher: subject.teacher || '',
-      room: subject.room || '',
+      default_room: subject.default_room || '',
       color: subject.color || '#22c55e',
       note: subject.note || '',
+      is_active: subject.is_active,
     })
     setEditingId(subject.id)
   }
@@ -121,8 +124,8 @@ export default function Subjects() {
               <label className="block text-sm text-slate-700">
                 Room
                 <input
-                  value={form.room}
-                  onChange={(e) => setForm({ ...form, room: e.target.value })}
+                  value={form.default_room}
+                  onChange={(e) => setForm({ ...form, default_room: e.target.value })}
                   className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm"
                 />
               </label>
@@ -186,7 +189,7 @@ export default function Subjects() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="font-semibold text-slate-900">{formatLabel(subject)}</p>
-                      <p className="mt-1 text-sm text-slate-600">{subject.teacher || 'No teacher'} · {subject.room || 'No room'}</p>
+                      <p className="mt-1 text-sm text-slate-600">{subject.teacher || 'No teacher'} · {subject.default_room || 'No room'}</p>
                     </div>
                     <div className="flex gap-2">
                       <button

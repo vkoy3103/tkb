@@ -1,53 +1,62 @@
 import { useEffect, useState } from 'react'
-import { fetchSettings, updateSettings } from '../services/settingsApi'
-import type { Settings } from '../types'
+import { fetchSettings, updateSetting } from '../services/settingsApi'
+import type { SettingsEntry } from '../types'
+
+const defaultDraft: Record<string, string> = {
+  NORMAL_RATE: '20000',
+  NPC_RATE: '20000',
+  OT_RATE: '40000',
+  EXTEND_RATE: '50000',
+  OT_START_TIME: '22:00',
+  SHIFT_1_START: '09:00',
+  SHIFT_1_END: '13:00',
+  SHIFT_2_START: '13:00',
+  SHIFT_2_END: '18:00',
+  SHIFT_3_START: '18:00',
+  SHIFT_3_END: '22:00',
+}
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<Settings | null>(null)
-  const [draft, setDraft] = useState({ normal_rate: 20000, npc_rate: 20000, ot_rate: 40000, extend_rate: 50000 })
+  const [, setSettings] = useState<SettingsEntry[]>([])
+  const [draft, setDraft] = useState<Record<string, string>>(defaultDraft)
 
   useEffect(() => {
     fetchSettings().then((result) => {
       setSettings(result)
-      setDraft({
-        normal_rate: result.normal_rate,
-        npc_rate: result.npc_rate,
-        ot_rate: result.ot_rate,
-        extend_rate: result.extend_rate,
+      const nextDraft: Record<string, string> = { ...defaultDraft }
+      result.forEach((item) => {
+        if (item.key && item.value !== null && item.value !== undefined) {
+          nextDraft[item.key] = item.value
+        }
       })
+      setDraft(nextDraft)
     })
   }, [])
 
   const submit = async () => {
-    if (!settings) return
-    const updated = await updateSettings(draft)
+    const updates = Object.entries(draft).map(([key, value]) => updateSetting(key, { value }))
+    const updated = await Promise.all(updates)
     setSettings(updated)
-    setDraft({
-      normal_rate: updated.normal_rate,
-      npc_rate: updated.npc_rate,
-      ot_rate: updated.ot_rate,
-      extend_rate: updated.extend_rate,
-    })
   }
 
   return (
     <div className="space-y-6">
       <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-2xl font-semibold">Settings</h2>
-        <p className="mt-2 text-sm text-slate-600">Điều chỉnh mức lương và backup/restore dữ liệu.</p>
+        <p className="mt-2 text-sm text-slate-600">Điều chỉnh các cấu hình hệ thống và thời gian ca làm.</p>
       </header>
 
       <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 className="text-lg font-semibold">Salary Settings</h3>
+          <h3 className="text-lg font-semibold">System Settings</h3>
           <div className="mt-5 grid gap-4">
-            {(['normal_rate', 'npc_rate', 'ot_rate', 'extend_rate'] as const).map((key) => (
+            {Object.entries(draft).map(([key, value]) => (
               <label className="grid gap-2 text-sm text-slate-700" key={key}>
-                {key.replace('_', ' ').toUpperCase()}
+                {key}
                 <input
-                  type="number"
-                  value={draft[key]}
-                  onChange={(e) => setDraft({ ...draft, [key]: Number(e.target.value) })}
+                  type="text"
+                  value={value}
+                  onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
                   className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm"
                 />
               </label>
@@ -66,7 +75,7 @@ export default function SettingsPage() {
           <h3 className="text-lg font-semibold">Backup / Restore</h3>
           <div className="mt-5 space-y-3 text-sm text-slate-600">
             <p>Export database to schedule.db.</p>
-            <p>Upload an SQLite file to restore.</p>
+            <p>Upload a SQLite file to restore the backend database.</p>
           </div>
         </section>
       </div>
