@@ -65,7 +65,11 @@ export default function SchedulePage() {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; schedule: Schedule; date: string } | null>(
     null,
   )
-  const [makeupTarget, setMakeupTarget] = useState<{ schedule: Schedule; date: string } | null>(null)
+  const [makeupTarget, setMakeupTarget] = useState<{
+    schedule: Schedule
+    date: string
+    overrideToEdit?: ScheduleOverride
+  } | null>(null)
 
   const [cancelReason, setCancelReason] = useState('')
   const [cancelNote, setCancelNote] = useState('')
@@ -131,16 +135,21 @@ export default function SchedulePage() {
   const handleSaveMakeup = async (data: Partial<ScheduleOverride>) => {
     if (!makeupTarget) return
 
-    const payload = {
-      ...data,
-      class_schedule_id: Number(makeupTarget.schedule.id),
-      date: makeupTarget.date, // Ngày gốc của buổi học được bù
-      type: 'make_up' as const,
-      new_start_period: data.new_start_period ? Number(data.new_start_period) : undefined,
-      new_end_period: data.new_end_period ? Number(data.new_end_period) : undefined,
+    // Nếu có overrideToEdit, nghĩa là đang cập nhật
+    if (makeupTarget.overrideToEdit) {
+      const payload = { ...makeupTarget.overrideToEdit, ...data }
+      await updateScheduleOverride(makeupTarget.overrideToEdit.id, payload)
+    } else {
+      // Nếu không, là tạo mới
+      const payload = {
+        ...data,
+        class_schedule_id: Number(makeupTarget.schedule.id),
+        date: makeupTarget.date, // Ngày gốc của buổi học được bù
+        type: 'make_up' as const,
+      }
+      await createScheduleOverride(payload)
     }
 
-    await createScheduleOverride(payload)
     await loadData() // Tải lại dữ liệu để hiển thị lịch học bù
   }
 
@@ -178,18 +187,22 @@ export default function SchedulePage() {
 
     // 1. Xử lý cho lịch học bù
     if ('_isMakeup' in schedule && schedule._isMakeup) {
-      if (confirm('Bạn có chắc chắn muốn xóa buổi học bù này không?')) {
-        try {
-          // ID của override được lưu trong ID của schedule học bù, ví dụ: "makeup-123"
-          const overrideId = Number(String(schedule.id).replace('makeup-', ''))
-          if (!isNaN(overrideId)) {
-            await handleDeleteOverride(overrideId)
-          }
-        } catch (error) {
-          alert('Không thể xóa buổi học bù.')
-        }
-      }
-      return
+      const overrideId = Number(String(schedule.id).replace('makeup-', ''))
+      if (isNaN(overrideId)) return
+
+      const overrideToEdit = scheduleOverrides.find((o) => o.id === overrideId)
+      if (!overrideToEdit) return
+
+      const originalSchedule = schedules.find((s) => s.id === overrideToEdit.class_schedule_id)
+      if (!originalSchedule) return
+
+      // Mở modal học bù ở chế độ chỉnh sửa
+      setMakeupTarget({
+        schedule: originalSchedule,
+        date: overrideToEdit.date, // Ngày gốc của buổi học được bù
+        overrideToEdit: overrideToEdit,
+      })
+      return // Dừng lại ở đây, không mở context menu
     }
 
     // 2. Xử lý cho lịch học cố định đã được đánh dấu nghỉ
@@ -529,6 +542,7 @@ return (
         onClose={() => setMakeupTarget(null)}
         onSave={handleSaveMakeup}
         schedule={makeupTarget.schedule}
+        overrideToEdit={makeupTarget.overrideToEdit}
         subjects={subjects}
         periods={periods}
       />

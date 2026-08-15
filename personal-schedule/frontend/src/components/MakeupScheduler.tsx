@@ -14,6 +14,7 @@ import type { Schedule, ScheduleOverride, Subject, Period } from '../types'
 interface MakeupSchedulerProps {
   schedule: Schedule | null
   isOpen: boolean
+  overrideToEdit?: ScheduleOverride
   onClose: () => void
   onSave: (data: Partial<ScheduleOverride>) => Promise<void>
   subjects: Subject[]
@@ -33,6 +34,7 @@ const initialFormData = {
 export function MakeupScheduler({
   schedule,
   isOpen,
+  overrideToEdit,
   onClose,
   onSave,
   subjects,
@@ -48,15 +50,23 @@ export function MakeupScheduler({
 
   useEffect(() => {
     if (isOpen) {
-      setFormData({
-        ...initialFormData,
-        new_room: schedule?.room || '',
-        new_start_period: schedule?.start_period,
-        new_end_period: schedule?.end_period,
-      })
+      if (overrideToEdit) {
+        // Chế độ chỉnh sửa: điền form từ override có sẵn
+        setFormData({
+          new_date: overrideToEdit.new_date || '',
+          new_start_period: overrideToEdit.new_start_period || '',
+          new_end_period: overrideToEdit.new_end_period || '',
+          new_room: overrideToEdit.new_room || '',
+          reason: overrideToEdit.reason || '',
+          note: overrideToEdit.note || '',
+        })
+      } else {
+        // Chế độ tạo mới: điền form từ lịch học gốc
+        setFormData({ ...initialFormData, new_room: schedule?.room || '' })
+      }
       setErrors({})
     }
-  }, [schedule, isOpen])
+  }, [schedule, isOpen, overrideToEdit])
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -103,7 +113,7 @@ export function MakeupScheduler({
     <>
       <ScheduleModal
         isOpen={isOpen}
-        title={`Học bù cho: ${subject?.name || 'Môn học'}`}
+        title={overrideToEdit ? `Chỉnh sửa học bù` : `Học bù cho: ${subject?.name || 'Môn học'}`}
         onClose={onClose}
         onSubmit={handleSubmit}
         isLoading={isLoading}
@@ -131,7 +141,21 @@ export function MakeupScheduler({
             label="Tiết bắt đầu"
             required
             value={String(formData.new_start_period || '')}
-            onChange={(e) => setFormData({ ...formData, new_start_period: Number(e.target.value) })}
+            onChange={(e) => {
+              const newStartPeriod = Number(e.target.value)
+              if (!schedule || !newStartPeriod) {
+                setFormData({ ...formData, new_start_period: newStartPeriod, new_end_period: '' })
+                return
+              }
+
+              const duration = schedule.end_period - schedule.start_period
+              const newEndPeriod = newStartPeriod + duration
+
+              const maxPeriod = Math.max(...periods.map((p) => p.period_number), 0)
+
+              // Chỉ tự động cập nhật nếu tiết kết thúc mới hợp lệ
+              setFormData({ ...formData, new_start_period: newStartPeriod, new_end_period: newEndPeriod <= maxPeriod ? newEndPeriod : '' })
+            }}
             options={periods.map((p) => ({ value: p.period_number, label: `Tiết ${p.period_number}` }))}
             error={errors.new_start_period}
           />
