@@ -62,9 +62,20 @@ type TimetableProps = {
   schedules: Schedule[]
   periods: Period[]
   scheduleOverrides?: ScheduleOverride[]
+  onScheduleClick?: (schedule: TimetableSchedule, date: string) => void
+  onScheduleContextMenu?: (e: React.MouseEvent, schedule: TimetableSchedule, date: string) => void
+  onAddSchedule?: () => void
 }
 
-export function Timetable({ subjects, schedules, periods, scheduleOverrides = [] }: TimetableProps) {
+export function Timetable({
+  subjects = [],
+  schedules = [],
+  periods = [],
+  scheduleOverrides = [],
+  onScheduleClick,
+  onScheduleContextMenu,
+  onAddSchedule,
+}: TimetableProps) {
   const [viewDate, setViewDate] = useState(() => getVietnamDate(new Date()))
 
   const weekDates = useMemo(() => {
@@ -82,14 +93,16 @@ export function Timetable({ subjects, schedules, periods, scheduleOverrides = []
     return `${start.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} - ${end.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
   }, [weekDates])
 
-  const canceledScheduleIds = useMemo(
-    () => new Set(scheduleOverrides.filter((item) => item.type === 'cancel').map((item) => item.class_schedule_id)),
+  const canceledScheduleKeys = useMemo(
+    () =>
+      new Set(
+        scheduleOverrides
+          .filter((item) => item.type === 'cancel')
+          .map(
+            (item) => `${item.class_schedule_id}-${item.date}`
+          )
+      ),
     [scheduleOverrides],
-  )
-
-  const visibleSchedules = useMemo(
-    () => schedules.filter((schedule) => !canceledScheduleIds.has(schedule.id)),
-    [canceledScheduleIds, schedules],
   )
 
   const makeupSchedules = useMemo<TimetableSchedule[]>(() => {
@@ -130,6 +143,12 @@ export function Timetable({ subjects, schedules, periods, scheduleOverrides = []
           <p className="timetable-toolbar__label">Week</p>
           <p className="timetable-toolbar__date">{weekLabel}</p>
         </div>
+
+        <div className="timetable-toolbar__actions">
+          <button type="button" onClick={onAddSchedule} className="timetable-toolbar__button timetable-toolbar__button--primary">
+            + Thêm lịch
+          </button>
+        </div>
       </div>
 
       <div className="timetable-layout">
@@ -161,16 +180,19 @@ export function Timetable({ subjects, schedules, periods, scheduleOverrides = []
                   const iso = formatDateKey(date)
                   const weekdayValue = index + 2
                   const daySchedules: TimetableSchedule[] = [
-                    ...visibleSchedules.filter((item) => item.weekday === weekdayValue),
+                    ...schedules.filter((item) => item.weekday === weekdayValue),
                     ...makeupSchedules.filter((item) => item.weekday === weekdayValue),
                   ]
 
                   return (
                     <DayColumn
-                      key={iso}
+                      date={iso}
                       schedules={daySchedules}
                       subjects={subjects}
                       periods={periods}
+                      scheduleOverrides={scheduleOverrides}
+                      onScheduleClick={onScheduleClick}
+                      onScheduleContextMenu={onScheduleContextMenu}
                     />
                   )
                 })}

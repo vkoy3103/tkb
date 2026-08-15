@@ -51,14 +51,14 @@ export function ScheduleModal({
 
           <div className="schedule-modal__footer">
             {showDeleteButton && onDelete && (
-              <button
-                type="button"
-                className="btn btn--danger-outline btn--small"
-                onClick={onDelete}
-                disabled={isLoading}
-              >
-                🗑️ Xóa
-              </button>
+                <button
+                  type="button"
+                  className="btn btn--danger-outline btn--small"
+                  onClick={onDelete}
+                  disabled={isLoading}
+                >
+                  🗑️ Xóa
+                </button>
             )}
             <div style={{ flex: 1 }} />
             <button

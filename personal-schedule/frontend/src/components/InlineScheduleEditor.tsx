@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   ScheduleModal,
   FormGroup,
@@ -15,11 +15,16 @@ interface InlineScheduleEditorProps {
   isOpen: boolean
   onClose: () => void
   onSave: (data: Partial<Schedule>) => Promise<void>
-  onDelete: (id: number | string) => Promise<void>
   subjects: Subject[]
   periods: Period[]
   isLoading?: boolean
-  contextMenu?: { x: number; y: number } | null
+  contextMenu?: {
+    x: number
+    y: number
+    onEdit: () => void
+    onCancel: () => void
+    onMakeup: () => void
+  }
   onContextMenuClose?: () => void
 }
 
@@ -28,13 +33,12 @@ export function InlineScheduleEditor({
   isOpen,
   onClose,
   onSave,
-  onDelete,
   subjects,
   periods,
   isLoading = false,
   contextMenu,
   onContextMenuClose,
-}: InlineScheduleEditorProps) {
+}: InlineScheduleEditorProps): React.ReactElement | null {
   const [formData, setFormData] = useState<Partial<Schedule>>(
     schedule || {
       subject_id: 0,
@@ -51,12 +55,25 @@ export function InlineScheduleEditor({
     type: 'success' | 'error' | 'info'
   } | null>(null)
 
+  const resetForm = useCallback(() => {
+    setFormData({
+      subject_id: 0,
+      weekday: 1,
+      start_period: 1,
+      end_period: 2,
+      room: '',
+      note: '',
+    })
+    setErrors({})
+  }, [])
+
   useEffect(() => {
-    if (schedule && isOpen) {
+    if (isOpen) {
+      if (schedule) {
       setFormData(schedule)
-      setErrors({})
+      } else resetForm()
     }
-  }, [schedule, isOpen])
+  }, [schedule, isOpen, resetForm])
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -94,23 +111,8 @@ export function InlineScheduleEditor({
     }
   }
 
-  const handleDelete = async () => {
-    if (!schedule) return
-    if (!confirm('Bạn chắc chắn muốn xóa lịch này?')) return
-
-    try {
-      await onDelete(schedule.id)
-      setToast({ message: 'Xóa thành công!', type: 'success' })
-      setTimeout(() => {
-        onClose()
-        setToast(null)
-      }, 1000)
-    } catch (error) {
-      setToast({
-        message: `Lỗi: ${(error as Error).message}`,
-        type: 'error',
-      })
-    }
+  if (!isOpen && !toast && !contextMenu) {
+    return null
   }
 
   const subjectName = subjects.find((s) => s.id === formData.subject_id)?.name || 'Lịch học'
@@ -132,8 +134,6 @@ export function InlineScheduleEditor({
         onClose={onClose}
         onSubmit={handleSubmit}
         isLoading={isLoading}
-        showDeleteButton={!!schedule}
-        onDelete={handleDelete}
       >
         {formData.subject_id && (
           <ScheduleAlert
@@ -251,15 +251,17 @@ export function InlineScheduleEditor({
             {
               label: 'Chỉnh sửa',
               icon: '✏️',
-              onClick: () => {
-                // Modal will open because schedule is already set
-              },
+              onClick: contextMenu.onEdit,
             },
             {
-              label: 'Xóa',
-              icon: '🗑️',
-              onClick: handleDelete,
-              danger: true,
+              label: 'Nghỉ học',
+              icon: '🚫',
+              onClick: contextMenu.onCancel,
+            },
+            {
+              label: 'Học bù',
+              icon: '🔄',
+              onClick: contextMenu.onMakeup,
             },
           ]}
           onClose={onContextMenuClose}
