@@ -173,9 +173,42 @@ export default function SchedulePage() {
     setContextMenu(null)
   }
 
-  const handleScheduleInteraction = (e: React.MouseEvent, schedule: Schedule, date: string) => {
+  const handleScheduleInteraction = async (e: React.MouseEvent, schedule: Schedule, date: string) => {
     e.preventDefault()
-    if ('_isMakeup' in schedule && schedule._isMakeup) return // Không cho context menu trên lịch học bù
+
+    // 1. Xử lý cho lịch học bù
+    if ('_isMakeup' in schedule && schedule._isMakeup) {
+      if (confirm('Bạn có chắc chắn muốn xóa buổi học bù này không?')) {
+        try {
+          // ID của override được lưu trong ID của schedule học bù, ví dụ: "makeup-123"
+          const overrideId = Number(String(schedule.id).replace('makeup-', ''))
+          if (!isNaN(overrideId)) {
+            await handleDeleteOverride(overrideId)
+          }
+        } catch (error) {
+          alert('Không thể xóa buổi học bù.')
+        }
+      }
+      return
+    }
+
+    // 2. Xử lý cho lịch học cố định đã được đánh dấu nghỉ
+    const cancelOverride = scheduleOverrides.find(
+      (o) => o.type === 'cancel' && Number(o.class_schedule_id) === Number(schedule.id) && o.date === date,
+    )
+
+    if (cancelOverride) {
+      if (confirm('Buổi học này đã được đánh dấu nghỉ. Bạn có muốn đi học lại không?')) {
+        try {
+          await handleDeleteOverride(cancelOverride.id)
+        } catch (error) {
+          alert('Không thể hoàn tác trạng thái nghỉ.')
+        }
+      }
+      return
+    }
+
+    // 3. Xử lý cho lịch học cố định, chưa nghỉ -> Mở context menu
     setContextMenu({ x: e.clientX, y: e.clientY, schedule, date })
   }
 
