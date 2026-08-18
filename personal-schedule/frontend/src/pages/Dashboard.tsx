@@ -4,7 +4,8 @@ import { fetchSubjects } from '../services/subjectApi'
 import { fetchPeriods } from '../services/periodApi'
 import { fetchWorkShifts } from '../services/workShiftApi'
 import { fetchDayStatistics, fetchMonthStatistics, fetchWeekStatistics } from '../services/statisticsApi'
-import type { Period, Schedule, Statistics, Subject, WorkShift } from '../types'
+import { fetchSettings } from '../services/settingsApi'
+import type { Period, Schedule, SettingsEntry, Statistics, Subject, WorkShift } from '../types'
 import '../styles/dashboard.css'
 
 function formatCurrency(value: number) {
@@ -44,6 +45,8 @@ export default function Dashboard() {
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [periods, setPeriods] = useState<Period[]>([])
   const [workShifts, setWorkShifts] = useState<WorkShift[]>([])
+  const [settings, setSettings] = useState<SettingsEntry[]>([])
+  const [salaryPeriod, setSalaryPeriod] = useState<'day' | 'week' | 'month'>('month')
   const [selectedDate, setSelectedDate] = useState(() => new Date())
   const [loading, setLoading] = useState(true)
   const [loadingDate, setLoadingDate] = useState<string | null>(null)
@@ -61,8 +64,9 @@ export default function Dashboard() {
       fetchSubjects(),
       fetchPeriods(),
       fetchWorkShifts(),
+      fetchSettings(),
     ])
-      .then(([day, week, month, scheduleData, subjectData, periodData, shiftData]) => {
+      .then(([day, week, month, scheduleData, subjectData, periodData, shiftData, settingData]) => {
         setTodayStats(day)
         setWeekStats(week)
         setMonthStats(month)
@@ -70,6 +74,7 @@ export default function Dashboard() {
         setSubjects(subjectData)
         setPeriods(periodData)
         setWorkShifts(shiftData)
+        setSettings(settingData)
       })
   }
 
@@ -137,6 +142,51 @@ export default function Dashboard() {
       .sort((a, b) => a.scheduled_start.localeCompare(b.scheduled_start))
       .slice(0, 3)
   }, [workShifts, selectedDate])
+
+  // ----- Tính lương -----
+  const rates = useMemo(() => {
+    const map: Record<string, number> = {}
+    settings.forEach((s) => {
+      if (s.key) {
+        const value = Number(s.value)
+        if (!Number.isNaN(value)) map[s.key] = value
+      }
+    })
+    return map
+  }, [settings])
+
+  const salaryStats = salaryPeriod === 'day' ? todayStats : salaryPeriod === 'week' ? weekStats : monthStats
+
+  const salaryRows = [
+    {
+      key: 'normal',
+      label: 'Ca thường (NORMAL)',
+      detail: `${Number(salaryStats?.normal_hours ?? 0).toFixed(1)} giờ × ${(rates.NORMAL_RATE ?? 0).toLocaleString('vi-VN')}đ/giờ`,
+      amount: salaryStats?.normal_income ?? 0,
+      color: '#0f172a',
+    },
+    {
+      key: 'ot',
+      label: 'OT',
+      detail: `${Number(salaryStats?.ot_hours ?? 0).toFixed(1)} giờ × ${(2 * (rates.NORMAL_RATE ?? 0)).toLocaleString('vi-VN')}đ/giờ (x2)`,
+      amount: salaryStats?.ot_income ?? 0,
+      color: '#b45309',
+    },
+    {
+      key: 'npc',
+      label: 'NPC',
+      detail: `${Number(salaryStats?.npc_hours ?? 0).toFixed(1)} giờ × ${(rates.NPC_RATE ?? 0).toLocaleString('vi-VN')}đ/giờ`,
+      amount: salaryStats?.npc_income ?? 0,
+      color: '#4338ca',
+    },
+    {
+      key: 'extend',
+      label: 'EXTEND',
+      detail: `${salaryStats?.extend_count ?? 0} lần × ${(rates.EXTEND_RATE ?? 0).toLocaleString('vi-VN')}đ/lần`,
+      amount: salaryStats?.extend_income ?? 0,
+      color: '#be123c',
+    },
+  ]
 
   if (loading && !todayStats && !weekStats && !monthStats) {
     return (
@@ -212,6 +262,61 @@ export default function Dashboard() {
           <p className="dashboard-card__subcaption">Làm</p>
           <p className="dashboard-card__subvalue">{monthStats ? formatCurrency(monthStats.total_income) : '0 VNĐ'}</p>
           <p className="dashboard-card__subcaption">Lương</p>
+        </div>
+      </section>
+
+      {/* Panel tính lương chi tiết */}
+      <section className="dashboard-panel dashboard-salary">
+        <div className="dashboard-salary__header">
+          <h3 className="dashboard-panel__title">Tính lương</h3>
+          <div className="dashboard-salary__toggle">
+            {(['day', 'week', 'month'] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                className={`dashboard-salary__tab ${salaryPeriod === p ? 'dashboard-salary__tab--active' : ''}`}
+                onClick={() => setSalaryPeriod(p)}
+              >
+                {p === 'day' ? 'Hôm nay' : p === 'week' ? 'Tuần này' : 'Tháng này'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="dashboard-salary__content">
+          <div className="dashboard-salary__total">
+            <p className="dashboard-salary__total-label">Tổng lương</p>
+            <p className="dashboard-salary__total-value">{formatCurrency(salaryStats?.total_income ?? 0)}</p>
+            <p className="dashboard-salary__total-sub">
+              {Number(salaryStats?.work_hours ?? 0).toFixed(1)} giờ làm · {Number(salaryStats?.study_hours ?? 0).toFixed(1)} giờ học
+            </p>
+          </div>
+
+          <table className="dashboard-salary__table">
+            <thead>
+              <tr>
+                <th>Loại</th>
+                <th>Chi tiết</th>
+                <th>Thành tiền</th>
+              </tr>
+            </thead>
+            <tbody>
+              {salaryRows.map((row) => (
+                <tr key={row.key}>
+                  <td className="dashboard-salary__label">
+                    <span className="dashboard-salary__dot" style={{ background: row.color }} />
+                    {row.label}
+                  </td>
+                  <td className="dashboard-salary__detail">{row.detail}</td>
+                  <td className="dashboard-salary__amount">{formatCurrency(row.amount)}</td>
+                </tr>
+              ))}
+              <tr className="dashboard-salary__total-row">
+                <td colSpan={2}>Tổng</td>
+                <td>{formatCurrency(salaryStats?.total_income ?? 0)}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 

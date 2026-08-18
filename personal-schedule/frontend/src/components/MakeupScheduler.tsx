@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import {
   ScheduleModal,
-  FormGroup,
   FormInput,
   FormRow,
   ScheduleToast,
-  ScheduleAlert,
   FormSelect,
   FormTextarea,
 } from './ScheduleEditor'
@@ -22,7 +20,16 @@ interface MakeupSchedulerProps {
   isLoading?: boolean
 }
 
-const initialFormData = {
+interface MakeupFormState {
+  new_date: string
+  new_start_period: number | ''
+  new_end_period: number | ''
+  new_room: string
+  reason: string
+  note: string
+}
+
+const initialFormData: MakeupFormState = {
   new_date: '',
   new_start_period: '',
   new_end_period: '',
@@ -41,7 +48,7 @@ export function MakeupScheduler({
   periods,
   isLoading = false,
 }: MakeupSchedulerProps): React.ReactElement | null {
-  const [formData, setFormData] = useState<Partial<ScheduleOverride>>(initialFormData)
+  const [formData, setFormData] = useState<MakeupFormState>(initialFormData)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [toast, setToast] = useState<{
     message: string
@@ -89,7 +96,15 @@ export function MakeupScheduler({
     if (!validateForm()) return
 
     try {
-      await onSave(formData)
+      const payload: Partial<ScheduleOverride> = {
+        new_date: formData.new_date || null,
+        new_start_period: formData.new_start_period === '' ? null : formData.new_start_period,
+        new_end_period: formData.new_end_period === '' ? null : formData.new_end_period,
+        new_room: formData.new_room || null,
+        reason: formData.reason || null,
+        note: formData.note || null,
+      }
+      await onSave(payload)
       setToast({ message: 'Lưu lịch học bù thành công!', type: 'success' })
       setTimeout(() => {
         onClose()

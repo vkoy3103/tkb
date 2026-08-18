@@ -80,6 +80,7 @@ export interface WorkExtra {
   work_shift_id: number
   extra_type_id?: number
   type?: string
+  type_name?: string | null
   quantity?: number | null
   unit_price?: number | null
   amount: number

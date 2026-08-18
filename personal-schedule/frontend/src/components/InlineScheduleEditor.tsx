@@ -8,7 +8,7 @@ import {
   ContextMenu,
   ScheduleAlert,
 } from './ScheduleEditor'
-import type { Schedule, ScheduleOverride, Subject, Period } from '../types'
+import type { Schedule, Subject, Period } from '../types'
 
 interface InlineScheduleEditorProps {
   schedule: Schedule | null
@@ -42,7 +42,7 @@ export function InlineScheduleEditor({
   const [formData, setFormData] = useState<Partial<Schedule>>(
     schedule || {
       subject_id: 0,
-      weekday: 1,
+      weekday: 2,
       start_period: 1,
       end_period: 2,
       room: '',
@@ -58,7 +58,7 @@ export function InlineScheduleEditor({
   const resetForm = useCallback(() => {
     setFormData({
       subject_id: 0,
-      weekday: 1,
+      weekday: 2,
       start_period: 1,
       end_period: 2,
       room: '',
@@ -138,7 +138,7 @@ export function InlineScheduleEditor({
         {formData.subject_id && (
           <ScheduleAlert
             type="info"
-            message={`${subjectName} - ${weekdayNames[(formData.weekday as number) - 1]}, Tiết ${formData.start_period}-${formData.end_period}`}
+            message={`${subjectName} - ${weekdayNames[(formData.weekday as number) - 2]}, Tiết ${formData.start_period}-${formData.end_period}`}
           />
         )}
 
@@ -172,7 +172,7 @@ export function InlineScheduleEditor({
             >
               <option value="">-- Chọn thứ --</option>
               {weekdayNames.map((name, idx) => (
-                <option key={idx + 1} value={idx + 1}>
+                <option key={idx + 2} value={idx + 2}>
                   {name}
                 </option>
               ))}

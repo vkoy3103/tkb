@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Timetable } from '../components/timetable/Timetable'
+import type { TimetableSchedule } from '../components/timetable/Timetable'
 import { MakeupScheduler } from '../components/MakeupScheduler'
 import { InlineScheduleEditor } from '../components/InlineScheduleEditor'
+import { WeekShiftScheduler } from '../components/WeekShiftScheduler'
+import { ShiftMoneyEditor } from '../components/ShiftMoneyEditor'
+import type { WeekShiftDraft } from '../components/WeekShiftScheduler'
 import { fetchPeriods } from '../services/periodApi'
 import {
   createSchedule,
@@ -16,22 +20,34 @@ import {
   updateScheduleOverride,
 } from '../services/scheduleOverrideApi'
 import { fetchSubjects } from '../services/subjectApi'
-import type { Period, Schedule, ScheduleOverride, Subject } from '../types'
+import { createWorkShift, deleteWorkShift, fetchWorkShifts, syncWorkShiftExtras } from '../services/workShiftApi'
+import { fetchWorkExtras } from '../services/workExtraApi'
+import { fetchSettings } from '../services/settingsApi'
+import type {
+  Period,
+  Schedule,
+  ScheduleOverride,
+  SettingsEntry,
+  Subject,
+  WorkExtra,
+  WorkShift,
+} from '../types'
 import '../styles/cancel-modal.css'
 
+// Quy ước weekday theo DB: 2 = Thứ 2 ... 8 = Chủ nhật
 const weekdayOptions = [
-  { value: 1, label: 'Thứ 2' },
-  { value: 2, label: 'Thứ 3' },
-  { value: 3, label: 'Thứ 4' },
-  { value: 4, label: 'Thứ 5' },
-  { value: 5, label: 'Thứ 6' },
-  { value: 6, label: 'Thứ 7' },
-  { value: 7, label: 'Chủ nhật' },
+  { value: 2, label: 'Thứ 2' },
+  { value: 3, label: 'Thứ 3' },
+  { value: 4, label: 'Thứ 4' },
+  { value: 5, label: 'Thứ 5' },
+  { value: 6, label: 'Thứ 6' },
+  { value: 7, label: 'Thứ 7' },
+  { value: 8, label: 'Chủ nhật' },
 ]
 
 const emptyForm = {
   subject_id: '',
-  weekday: 1,
+  weekday: 2,
   start_period: 1,
   end_period: 2,
   room: '',
@@ -40,15 +56,12 @@ const emptyForm = {
   note: '',
 }
 
-const defaultCancelOverride = {
-  type: 'cancel' as const,
-}
-
 export default function SchedulePage() {
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [periods, setPeriods] = useState<Period[]>([])
   const [scheduleOverrides, setScheduleOverrides] = useState<ScheduleOverride[]>([])
+  const [workShifts, setWorkShifts] = useState<WorkShift[]>([])
   const [form, setForm] = useState(emptyForm)
   const [holidayForm, setHolidayForm] = useState({
     class_schedule_id: '',
@@ -70,6 +83,21 @@ export default function SchedulePage() {
     date: string
     overrideToEdit?: ScheduleOverride
   } | null>(null)
+  const [workExtras, setWorkExtras] = useState<WorkExtra[]>([])
+  const [settings, setSettings] = useState<SettingsEntry[]>([])
+  const [moneyShift, setMoneyShift] = useState<WorkShift | null>(null)
+  const [isWeekModalOpen, setIsWeekModalOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const workExtraMap = useMemo(() => {
+    const map = new Map<number, WorkExtra[]>()
+    workExtras.forEach((extra) => {
+      const list = map.get(extra.work_shift_id) ?? []
+      list.push(extra)
+      map.set(extra.work_shift_id, list)
+    })
+    return map
+  }, [workExtras])
 
   const [cancelReason, setCancelReason] = useState('')
   const [cancelNote, setCancelNote] = useState('')
@@ -158,6 +186,36 @@ export default function SchedulePage() {
     await loadData()
   }
 
+  const handleSaveShiftMoney = async (
+    shift: WorkShift,
+    values: { npcHours: number; otHours: number; extendCount: number },
+    status: string,
+  ) => {
+    setSaving(true)
+    try {
+      await syncWorkShiftExtras(shift.id, {
+        status,
+        npc_hours: values.npcHours,
+        ot_hours: values.otHours,
+        extend_count: values.extendCount,
+      })
+      await loadData()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeleteShiftMoney = async (shift: WorkShift) => {
+    if (!window.confirm(`Xóa ca ${shift.shift_type} ngày ${shift.date}?`)) return
+    setSaving(true)
+    try {
+      await deleteWorkShift(shift.id)
+      await loadData()
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleSaveSchedule = async (data: Partial<Schedule>) => {
     const payload = {
       ...data,
@@ -182,19 +240,28 @@ export default function SchedulePage() {
     setContextMenu(null)
   }
 
-  const handleScheduleInteraction = async (e: React.MouseEvent, schedule: Schedule, date: string) => {
-    e.preventDefault()
+  // Trả về true nếu nên mở context menu (lịch cố định bình thường)
+  const runScheduleAction = async (schedule: TimetableSchedule, date: string): Promise<boolean> => {
+    // Xử lý cho ca làm: mở hộp thoại chỉnh tiền ca
+    if ('_isWork' in schedule && schedule._isWork) {
+      const workShiftId = Number(String(schedule.id).replace('work-', ''))
+      const shiftToEdit = workShifts.find((s) => s.id === workShiftId)
+      if (shiftToEdit) {
+        setMoneyShift(shiftToEdit)
+      }
+      return false
+    }
 
     // 1. Xử lý cho lịch học bù
     if ('_isMakeup' in schedule && schedule._isMakeup) {
       const overrideId = Number(String(schedule.id).replace('makeup-', ''))
-      if (isNaN(overrideId)) return
+      if (isNaN(overrideId)) return false
 
       const overrideToEdit = scheduleOverrides.find((o) => o.id === overrideId)
-      if (!overrideToEdit) return
+      if (!overrideToEdit) return false
 
       const originalSchedule = schedules.find((s) => s.id === overrideToEdit.class_schedule_id)
-      if (!originalSchedule) return
+      if (!originalSchedule) return false
 
       // Mở modal học bù ở chế độ chỉnh sửa
       setMakeupTarget({
@@ -202,7 +269,7 @@ export default function SchedulePage() {
         date: overrideToEdit.date, // Ngày gốc của buổi học được bù
         overrideToEdit: overrideToEdit,
       })
-      return // Dừng lại ở đây, không mở context menu
+      return false // Dừng lại ở đây, không mở context menu
     }
 
     // 2. Xử lý cho lịch học cố định đã được đánh dấu nghỉ
@@ -218,30 +285,67 @@ export default function SchedulePage() {
           alert('Không thể hoàn tác trạng thái nghỉ.')
         }
       }
-      return
+      return false
     }
 
-    // 3. Xử lý cho lịch học cố định, chưa nghỉ -> Mở context menu
-    setContextMenu({ x: e.clientX, y: e.clientY, schedule, date })
+    // 3. Lịch học cố định, chưa nghỉ -> Mở context menu
+    return true
+  }
+
+  const handleScheduleClick = async (schedule: TimetableSchedule, date: string) => {
+    await runScheduleAction(schedule, date)
+  }
+
+  const handleScheduleContextMenu = async (e: React.MouseEvent, schedule: TimetableSchedule, date: string) => {
+    e.preventDefault()
+    const shouldOpenMenu = await runScheduleAction(schedule, date)
+    if (shouldOpenMenu) {
+      setContextMenu({ x: e.clientX, y: e.clientY, schedule: schedule as Schedule, date })
+    }
   }
 
   const handleAddNewSchedule = () => {
     setEditingSchedule(null) // Đảm bảo không có schedule nào đang được chỉnh sửa
     setIsEditModalOpen(true)
   }
+
+  const handleSaveWorkShiftWeek = async (toCreate: WeekShiftDraft[], toDeleteIds: number[]) => {
+    setSaving(true)
+    try {
+      await Promise.all([
+        ...toCreate.map((d) => createWorkShift(d)),
+        ...toDeleteIds.map((id) => deleteWorkShift(id)),
+      ])
+      await loadData()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleAddWorkShiftWeek = () => {
+    setIsWeekModalOpen(true)
+  }
+
   const loadData = async () => {
     try {
       setLoading(true)
-      const [subjectData, scheduleData, periodData, overrideData] = await Promise.all([
-        fetchSubjects(),
-        fetchSchedules(),
-        fetchPeriods(),
-        fetchScheduleOverrides(),
-      ])
+      const [subjectData, scheduleData, periodData, overrideData, workShiftData, workExtraData, settingData] =
+        await Promise.all([
+          fetchSubjects(),
+          fetchSchedules(),
+          fetchPeriods(),
+          fetchScheduleOverrides(),
+          fetchWorkShifts(),
+          fetchWorkExtras(),
+          fetchSettings(),
+        ])
       setSubjects(subjectData)
       setSchedules(scheduleData)
       setPeriods(periodData)
       setScheduleOverrides(overrideData)
+      setWorkShifts(workShiftData)
+      setWorkExtras(workExtraData)
+      setSettings(settingData)
     } catch {
       setError('Không thể tải dữ liệu lịch học.')
     } finally {
@@ -548,6 +652,24 @@ return (
       />
     )}
 
+    <WeekShiftScheduler
+      isOpen={isWeekModalOpen}
+      onClose={() => setIsWeekModalOpen(false)}
+      onSave={handleSaveWorkShiftWeek}
+      isLoading={saving}
+    />
+
+    <ShiftMoneyEditor
+      isOpen={!!moneyShift}
+      shift={moneyShift}
+      extras={moneyShift ? (workExtraMap.get(moneyShift.id) ?? []) : []}
+      settings={settings}
+      onClose={() => setMoneyShift(null)}
+      onSave={handleSaveShiftMoney}
+      onDelete={handleDeleteShiftMoney}
+      isLoading={saving}
+    />
+
     <div className="schedule-page">
       <div className="schedule-timetable-card">
         <Timetable
@@ -555,9 +677,11 @@ return (
           schedules={schedules}
           periods={periods}
           scheduleOverrides={scheduleOverrides}
-          onScheduleClick={handleScheduleInteraction}
-          onScheduleContextMenu={handleScheduleInteraction}
+          workShifts={workShifts}
+          onScheduleClick={handleScheduleClick}
+          onScheduleContextMenu={handleScheduleContextMenu}
           onAddSchedule={handleAddNewSchedule}
+          onAddWorkShiftWeek={handleAddWorkShiftWeek}
         />
       </div>
 

@@ -43,6 +43,11 @@
   flex-direction: column;
 }
 
+/* Modal rộng dành cho bảng chọn ca theo tuần (7 ngày x 3 ca) */
+.schedule-modal--wide {
+  max-width: 820px;
+}
+
 @keyframes slideUp {
   from {
     opacity: 0;
@@ -148,6 +153,98 @@
 
 .form-group__input::placeholder {
   color: #94a3b8;
+}
+
+/* Nút lên/xuống cho ô nhập số */
+.form-group__input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+  padding-right: 30px;
+}
+
+.form-group__input[type='number']::-webkit-outer-spin-button,
+.form-group__input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  height: calc(100% - 8px);
+  width: 22px;
+  margin: 4px 3px 4px 0;
+  opacity: 1;
+  border-radius: 8px;
+  background-color: #f1f5f9;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2364748b'><path d='M8 9l4-4 4 4z'/><path d='M8 15l4 4 4-4z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 16px 16px;
+  transition: background-color 0.15s ease;
+}
+
+.form-group__input[type='number']::-webkit-inner-spin-button:hover {
+  background-color: #dbeafe;
+}
+
+/* Bộ nút − / + cho ô nhập số (nhỏ gọn, không tràn) */
+.stepper {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+}
+
+.stepper__btn {
+  width: 30px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.stepper__btn:hover:not(:disabled) {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+.stepper__btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.stepper__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.stepper__btn--plus {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+  color: #047857;
+}
+
+.stepper__btn--plus:hover:not(:disabled) {
+  background: #a7f3d0;
+  border-color: #34d399;
+}
+
+.stepper__input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  text-align: center;
+  height: 34px;
+  padding: 6px 4px;
+  font-size: 13px;
 }
 
 .form-group__textarea {

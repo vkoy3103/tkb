@@ -4,8 +4,8 @@ from pydantic import BaseModel, Field
 
 class WorkExtraBase(BaseModel):
     work_shift_id: int
-    type: str = Field(..., min_length=1)
-    quantity: int | None = None
+    extra_type_id: int = Field(..., description="ID của loại phụ thu (NPC/OT/EXTEND...)")
+    quantity: float | None = None
     unit_price: float | None = None
     amount: int | None = None
     start_time: dt_time | None = None
@@ -19,8 +19,8 @@ class WorkExtraCreate(WorkExtraBase):
 
 class WorkExtraUpdate(BaseModel):
     work_shift_id: int | None = None
-    type: str | None = None
-    quantity: int | None = None
+    extra_type_id: int | None = None
+    quantity: float | None = None
     unit_price: float | None = None
     amount: int | None = None
     start_time: dt_time | None = None
@@ -30,6 +30,8 @@ class WorkExtraUpdate(BaseModel):
 
 class WorkExtraRead(WorkExtraBase):
     id: int
+    type: str | None = None
+    type_name: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

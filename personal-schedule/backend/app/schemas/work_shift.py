@@ -41,3 +41,12 @@ class WorkShiftRead(WorkShiftBase):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class WorkShiftExtrasUpdate(BaseModel):
+    """Đồng bộ trạng thái + số giờ NPC/OT + số lần EXTEND của một ca trong 1 request."""
+
+    status: str | None = None
+    npc_hours: float | None = None
+    ot_hours: float | None = None
+    extend_count: float | None = None

@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react'
 import { DayColumn } from './DayColumn'
 import { SubjectSidebar } from './SubjectSidebar'
 import { TimeColumn } from './TimeColumn'
-import type { Period, Schedule, ScheduleOverride, Subject } from '../../types'
+import type { Period, Schedule, ScheduleOverride, Subject, WorkShift } from '../../types'
 import '../../styles/timetable.css'
 
-type TimetableSchedule = {
+export type TimetableSchedule = {
   id: number | string
   subject_id: number
   weekday: number
@@ -15,19 +15,15 @@ type TimetableSchedule = {
   note?: string | null
   created_at?: string
   updated_at?: string
+  _isWork?: boolean
   _isMakeup?: boolean
+  shift_type?: string
+  status?: string
+  // Ngày cụ thể cho sự kiện 1 lần (ca làm / học bù), định dạng YYYY-MM-DD
+  date?: string
 }
 
 const dayNames = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật']
-const weekdayLabelMap: Record<number, string> = {
-  1: 'Thứ 2',
-  2: 'Thứ 3',
-  3: 'Thứ 4',
-  4: 'Thứ 5',
-  5: 'Thứ 6',
-  6: 'Thứ 7',
-  7: 'Chủ nhật',
-}
 const VIETNAM_TIMEZONE = 'Asia/Ho_Chi_Minh'
 
 function getVietnamDate(date: Date) {
@@ -53,8 +49,12 @@ function startOfVietnamWeek(date: Date) {
 }
 
 function formatDateKey(date: Date) {
+  // Lấy ngày theo local (tránh toISOString làm lệch ngày do múi giờ)
   const vietnamDate = getVietnamDate(date)
-  return vietnamDate.toISOString().slice(0, 10)
+  const y = vietnamDate.getFullYear()
+  const m = String(vietnamDate.getMonth() + 1).padStart(2, '0')
+  const d = String(vietnamDate.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 
 type TimetableProps = {
@@ -62,9 +62,11 @@ type TimetableProps = {
   schedules: Schedule[]
   periods: Period[]
   scheduleOverrides?: ScheduleOverride[]
+  workShifts?: WorkShift[]
   onScheduleClick?: (schedule: TimetableSchedule, date: string) => void
   onScheduleContextMenu?: (e: React.MouseEvent, schedule: TimetableSchedule, date: string) => void
   onAddSchedule?: () => void
+  onAddWorkShiftWeek?: () => void
 }
 
 export function Timetable({
@@ -72,9 +74,11 @@ export function Timetable({
   schedules = [],
   periods = [],
   scheduleOverrides = [],
+  workShifts = [],
   onScheduleClick,
   onScheduleContextMenu,
   onAddSchedule,
+  onAddWorkShiftWeek,
 }: TimetableProps) {
   const [viewDate, setViewDate] = useState(() => getVietnamDate(new Date()))
 
@@ -92,18 +96,6 @@ export function Timetable({
     const end = weekDates[6]
     return `${start.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} - ${end.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
   }, [weekDates])
-
-  const canceledScheduleKeys = useMemo(
-    () =>
-      new Set(
-        scheduleOverrides
-          .filter((item) => item.type === 'cancel')
-          .map(
-            (item) => `${item.class_schedule_id}-${item.date}`
-          )
-      ),
-    [scheduleOverrides],
-  )
 
   const makeupSchedules = useMemo<TimetableSchedule[]>(() => {
     return scheduleOverrides
@@ -125,10 +117,32 @@ export function Timetable({
           note: override.reason ?? null,
           created_at: override.created_at,
           updated_at: override.updated_at,
+          date: targetDate,
           _isMakeup: true,
         }
       })
   }, [scheduleOverrides, schedules])
+
+  const workEvents = useMemo<TimetableSchedule[]>(() => {
+    return workShifts.map((shift) => {
+      const date = new Date(`${shift.date}T00:00:00`)
+      const jsDay = date.getDay()
+      const weekday = jsDay === 0 ? 8 : jsDay + 1
+
+      return {
+        id: `work-${shift.id}`,
+        subject_id: -1, // Special ID for work
+        weekday,
+        start_period: 0, // Work shifts use time, not periods
+        end_period: 0,
+        note: `${shift.scheduled_start}-${shift.scheduled_end}`,
+        shift_type: shift.shift_type,
+        status: shift.status,
+        date: shift.date,
+        _isWork: true,
+      }
+    })
+  }, [workShifts])
 
   return (
     <div className="timetable-shell">
@@ -147,6 +161,9 @@ export function Timetable({
         <div className="timetable-toolbar__actions">
           <button type="button" onClick={onAddSchedule} className="timetable-toolbar__button timetable-toolbar__button--primary">
             + Thêm lịch
+          </button>
+          <button type="button" onClick={onAddWorkShiftWeek} className="timetable-toolbar__button">
+            🗓️ Thêm ca theo tuần
           </button>
         </div>
       </div>
@@ -179,13 +196,16 @@ export function Timetable({
                 {weekDates.map((date, index) => {
                   const iso = formatDateKey(date)
                   const weekdayValue = index + 2
+                  // Lịch học cố định: lặp theo thứ; ca làm & học bù: chỉ đúng ngày cụ thể
                   const daySchedules: TimetableSchedule[] = [
                     ...schedules.filter((item) => item.weekday === weekdayValue),
-                    ...makeupSchedules.filter((item) => item.weekday === weekdayValue),
+                    ...makeupSchedules.filter((item) => item.weekday === weekdayValue && item.date === iso),
+                    ...workEvents.filter((item) => item.weekday === weekdayValue && item.date === iso),
                   ]
 
                   return (
                     <DayColumn
+                      key={iso}
                       date={iso}
                       schedules={daySchedules}
                       subjects={subjects}

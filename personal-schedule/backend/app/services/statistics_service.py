@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time as dt_time, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -21,24 +21,41 @@ def get_settings_map() -> dict[str, float]:
     return values
 
 
+def get_ot_start_time() -> dt_time:
+    """Giờ bắt đầu tính OT (mặc định 22:00), đọc từ setting OT_START_TIME."""
+    settings = get_settings()
+    for setting in settings:
+        if setting.key.upper() == "OT_START_TIME" and setting.value:
+            try:
+                return dt_time.fromisoformat(setting.value[:5])
+            except ValueError:
+                break
+    return dt_time(22, 0)
+
+
 def calculate_work_shift_normal_hours(shift: WorkShift) -> float:
-    if shift.actual_start is None or shift.actual_end is None:
+    """Giờ ca thường. Nếu chưa chấm công (actual) thì tính theo giờ dự kiến.
+    Ca bị hủy (cancelled) không tính."""
+    if shift.status == "cancelled":
         return 0.0
-    start = datetime.combine(shift.date, shift.actual_start)
+    start = datetime.combine(shift.date, shift.actual_start or shift.scheduled_start)
     scheduled_end = datetime.combine(shift.date, shift.scheduled_end)
-    actual_end = datetime.combine(shift.date, shift.actual_end)
+    actual_end = datetime.combine(shift.date, shift.actual_end or shift.scheduled_end)
     normal_end = min(actual_end, scheduled_end)
     return max(0.0, (normal_end - start).total_seconds() / 3600.0)
 
 
-def calculate_work_shift_ot_hours(shift: WorkShift) -> float:
-    if shift.actual_end is None:
+def calculate_work_shift_ot_hours(shift: WorkShift, ot_start: dt_time) -> float:
+    """OT chỉ tính từ max(scheduled_end, OT_START_TIME) đến actual_end."""
+    if shift.status == "cancelled":
         return 0.0
     scheduled_end = datetime.combine(shift.date, shift.scheduled_end)
-    actual_end = datetime.combine(shift.date, shift.actual_end)
-    if actual_end <= scheduled_end:
+    ot_start_dt = datetime.combine(shift.date, ot_start)
+    actual_end = datetime.combine(shift.date, shift.actual_end or shift.scheduled_end)
+    start = max(scheduled_end, ot_start_dt)
+    if actual_end <= start:
         return 0.0
-    return max(0.0, (actual_end - scheduled_end).total_seconds() / 3600.0)
+    return max(0.0, (actual_end - start).total_seconds() / 3600.0)
 
 
 def get_shifts_in_range(db: Session, start_date: date, end_date: date) -> list[WorkShift]:
@@ -81,20 +98,27 @@ def make_statistics(db: Session, start_date: date, end_date: date) -> dict:
     study_hours = get_study_hours(db, start_date, end_date)
 
     normal_hours = sum(calculate_work_shift_normal_hours(shift) for shift in shifts)
-    ot_hours = sum(calculate_work_shift_ot_hours(shift) for shift in shifts)
+    ot_start = get_ot_start_time()
+    ot_hours = sum(calculate_work_shift_ot_hours(shift, ot_start) for shift in shifts)
 
     npc_hours = 0.0
     extend_count = 0
     for extra in extras:
         if extra.extra_type is None:
             continue
-        if extra.extra_type.code.upper() == "NPC":
+        code = extra.extra_type.code.upper()
+        if code == "NPC":
             npc_hours += float(extra.quantity or 0)
-        if extra.extra_type.code.upper() == "EXTEND":
+        elif code == "OT":
+            ot_hours += float(extra.quantity or 0)
+        elif code == "EXTEND":
             extend_count += int(extra.quantity or 0)
 
-    normal_income = int(round(normal_hours * settings.get("NORMAL_RATE", 0.0)))
-    ot_income = int(round(ot_hours * settings.get("OT_RATE", 0.0)))
+    normal_rate = settings.get("NORMAL_RATE", 0.0)
+    # OT = x2 lương ca thường (2 x NORMAL_RATE), không phải đơn giá cố định
+    ot_rate = 2.0 * normal_rate
+    normal_income = int(round(normal_hours * normal_rate))
+    ot_income = int(round(ot_hours * ot_rate))
     npc_income = int(round(npc_hours * settings.get("NPC_RATE", 0.0)))
     extend_income = int(round(extend_count * settings.get("EXTEND_RATE", 0.0)))
 

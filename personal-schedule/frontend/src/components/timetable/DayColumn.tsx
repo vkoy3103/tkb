@@ -1,5 +1,5 @@
 import type { Subject } from '../../types'
-import { TIME_SLOTS } from '../../utils/timeUtils'
+import { TIME_SLOTS, getTimeRow } from '../../utils/timeUtils'
 
 type TimetableSchedule = {
   id: number | string
@@ -11,7 +11,10 @@ type TimetableSchedule = {
   note?: string | null
   created_at?: string
   updated_at?: string
+  _isWork?: boolean
   _isMakeup?: boolean
+  shift_type?: string
+  status?: string
 }
 
 type ScheduleOverride = {
@@ -68,29 +71,48 @@ export function DayColumn({
             (item) => item.id === schedule.subject_id,
           )
 
-          const startPeriod = periods.find(
-            (period) => period.period_number === schedule.start_period,
-          )
+          const isWork = '_isWork' in schedule && Boolean(schedule._isWork)
 
-          const endPeriod = periods.find(
-            (period) => period.period_number === schedule.end_period,
-          )
+          let startTime: string, endTime: string
 
-          const startTime =
-            startPeriod?.start_time.slice(0, 5) ??
-            `${schedule.start_period}:00`
+          if (isWork && schedule.note) {
+            ;[startTime, endTime] = schedule.note.split('-')
+            startTime = startTime.slice(0, 5)
+            endTime = endTime.slice(0, 5)
+          } else {
+            const startPeriod = periods.find(
+              (period) => period.period_number === schedule.start_period,
+            )
+            const endPeriod = periods.find(
+              (period) => period.period_number === schedule.end_period,
+            )
+            startTime =
+              startPeriod?.start_time.slice(0, 5) ??
+              `${schedule.start_period}:00`
+            endTime =
+              endPeriod?.end_time.slice(0, 5) ??
+              `${schedule.end_period}:00`
+          }
 
-          const endTime =
-            endPeriod?.end_time.slice(0, 5) ??
-            `${schedule.end_period}:00`
+          // Định vị ô trên grid tiết học
+          let startIndex: number
+          let endIndex: number
 
-          const startIndex = TIME_SLOTS.findIndex(
-            (slot) => slot === startTime,
-          )
+          if (isWork) {
+            // Ca làm theo giờ -> dùng getTimeRow để định vị trên grid tiết học
+            startIndex = getTimeRow(startTime) - 1
+            endIndex = Math.max(getTimeRow(endTime) - 1, startIndex + 1)
+          } else {
+            // Lịch học theo tiết -> khớp chính xác với TIME_SLOTS
+            const findClosestSlot = (time: string) => {
+              const [h, m] = time.split(':').map(Number)
+              const roundedM = m < 30 ? '00' : '30'
+              return `${String(h).padStart(2, '0')}:${roundedM}`
+            }
 
-          const endIndex = TIME_SLOTS.findIndex(
-            (slot) => slot === endTime,
-          )
+            startIndex = TIME_SLOTS.findIndex((slot) => slot === findClosestSlot(startTime))
+            endIndex = TIME_SLOTS.findIndex((slot) => slot === endTime)
+          }
 
           const span = Math.max(1, endIndex - startIndex)
 
@@ -115,25 +137,29 @@ export function DayColumn({
           return (
             <div
               key={`${schedule.id}-${date}`}
-              className={`timetable-lesson-block cursor-pointer ${isMakeup ? 'timetable-lesson-block--makeup' : ''} ${isCancelled ? 'timetable-lesson-block--cancelled' : ''}`}
+              className={`timetable-lesson-block cursor-pointer ${isWork ? 'timetable-lesson-block--work' : ''} ${isMakeup ? 'timetable-lesson-block--makeup' : ''} ${isCancelled ? 'timetable-lesson-block--cancelled' : ''}`}
               style={{
                 gridRow: `${rowStart} / span ${span}`,
                 background: isCancelled
                   ? '#fef2f2'
-                  : isMakeup
-                    ? '#ecfeff'
-                    : subject?.color
-                      ? `${subject.color}ee`
-                      : '#dbeafe',
+                  : isWork
+                    ? '#f5f3ff' // bg-violet-50
+                    : isMakeup
+                      ? '#ecfeff' // bg-cyan-50
+                      : subject?.color
+                        ? `${subject.color}ee`
+                        : '#dbeafe', // bg-blue-200
                 borderColor: isCancelled
                   ? '#ef4444'
-                  : isMakeup
-                    ? '#22c55e'
-                    : subject?.color
-                      ? `${subject.color}99`
-                      : '#93c5fd',
+                  : isWork
+                    ? '#8b5cf6' // border-violet-500
+                    : isMakeup
+                      ? '#22c55e' // border-green-500
+                      : subject?.color
+                        ? `${subject.color}99`
+                        : '#93c5fd', // border-blue-300
               }}
-              onClick={(e) => {
+              onClick={() => {
                 if (onScheduleClick) {
                   onScheduleClick(schedule, date)
                 }
@@ -159,8 +185,9 @@ export function DayColumn({
               ) : (
                 <>
                   <div className="timetable-lesson-block__title">
-                    {subject?.name ?? 'Môn học'}
-                    {isMakeup ? ' • Học bù' : ''}
+                    {isWork
+                      ? `Ca làm${schedule.shift_type ? ` · ${schedule.shift_type}` : ''}`
+                      : `${subject?.name ?? 'Môn học'} ${isMakeup ? ' • Học bù' : ''}`}
                   </div>
 
                   <div className="timetable-lesson-block__meta">
@@ -168,7 +195,13 @@ export function DayColumn({
                   </div>
 
                   <div className="timetable-lesson-block__meta">
-                    {schedule.room || 'Không có phòng'}
+                    {isWork
+                      ? schedule.status === 'done'
+                        ? '✓ Đã làm'
+                        : schedule.status === 'cancelled'
+                          ? '✕ Đã hủy'
+                          : 'Theo lịch'
+                      : schedule.room || 'Không có phòng'}
                   </div>
                 </>
               )}

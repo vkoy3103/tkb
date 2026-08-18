@@ -220,3 +220,147 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- Panel Tính lương ---- */
+.dashboard-salary__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.dashboard-salary__toggle {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: #f1f5f9;
+  border-radius: 0.9rem;
+}
+
+.dashboard-salary__tab {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.45rem 0.85rem;
+  border-radius: 0.7rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dashboard-salary__tab:hover {
+  color: #0f172a;
+}
+
+.dashboard-salary__tab--active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+.dashboard-salary__content {
+  margin-top: 1.25rem;
+  display: grid;
+  grid-template-columns: 0.85fr 1.4fr;
+  gap: 1.5rem;
+  align-items: stretch;
+}
+
+.dashboard-salary__total {
+  border: 1px solid #bbf7d0;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.dashboard-salary__total-label {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #047857;
+}
+
+.dashboard-salary__total-value {
+  margin-top: 0.75rem;
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #065f46;
+  line-height: 1.1;
+}
+
+.dashboard-salary__total-sub {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: #047857;
+}
+
+.dashboard-salary__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.dashboard-salary__table th,
+.dashboard-salary__table td {
+  padding: 0.7rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.dashboard-salary__table th {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.dashboard-salary__table td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-salary__label {
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.dashboard-salary__dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
+.dashboard-salary__detail {
+  color: #64748b;
+}
+
+.dashboard-salary__amount {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.dashboard-salary__total-row td {
+  border-top: 2px solid #e2e8f0;
+  border-bottom: none;
+  font-weight: 800;
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-salary__content {
+    grid-template-columns: 1fr;
+  }
+}

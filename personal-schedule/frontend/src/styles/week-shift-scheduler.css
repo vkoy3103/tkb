@@ -1,0 +1,279 @@
+/* === WeekShiftScheduler: bảng chọn ca theo tuần === */
+
+/* Bảng compact */
+.ws-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.ws-table th,
+.ws-table td {
+  padding: 4px 4px;
+  text-align: center;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ws-table thead th {
+  background: #f8fafc;
+  font-weight: 600;
+  color: #334155;
+  border-bottom: 2px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.ws-th-day {
+  min-width: 58px;
+}
+
+.ws-day-name {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.ws-day-date {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.ws-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Cột tên ca */
+.ws-shift-cell {
+  text-align: left;
+  white-space: nowrap;
+  min-width: 80px;
+}
+
+.ws-shift-name {
+  font-weight: 700;
+  font-size: 12px;
+  color: #0f172a;
+}
+
+.ws-shift-time {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+/* Ô checkbox */
+.ws-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 28px;
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 2px;
+  transition: background 0.12s ease;
+}
+
+.ws-cell--clickable:hover {
+  background: #f0fdf4;
+}
+
+.ws-cell--disabled {
+  cursor: not-allowed;
+}
+
+.ws-cell input[type='checkbox'] {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: #10b981;
+  cursor: inherit;
+  flex-shrink: 0;
+}
+
+/* Trạng thái (badge) */
+.ws-status {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
+.ws-status--conflict {
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+.ws-status--existing {
+  color: #0284c7;
+  background: #e0f2fe;
+}
+
+.ws-status--new {
+  color: #059669;
+  background: #d1fae5;
+}
+
+.ws-status--delete {
+  color: #d97706;
+  background: #fef3c7;
+}
+
+.ws-status--empty {
+  color: #94a3b8;
+  background: #f8fafc;
+}
+
+/* Điều hướng tuần */
+.ws-week-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ws-week-nav .form-group__input {
+  flex: 1;
+  min-width: 150px;
+}
+
+/* Nút chung */
+.ws-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  user-select: none;
+}
+
+.ws-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.ws-btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.ws-btn:focus-visible {
+  outline: 2px solid #10b981;
+  outline-offset: 2px;
+}
+
+.ws-btn--primary {
+  background: #10b981;
+  border-color: #10b981;
+  color: #ffffff;
+}
+
+.ws-btn--primary:hover {
+  background: #059669;
+  border-color: #059669;
+}
+
+.ws-btn--select-all {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+  color: #047857;
+}
+
+.ws-btn--select-all:hover {
+  background: #a7f3d0;
+  border-color: #34d399;
+}
+
+.ws-btn--clear {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.ws-btn--clear:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+/* Tổng kết dạng chip */
+.ws-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+.ws-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+}
+
+.ws-chip--ok {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #047857;
+}
+
+.ws-chip--warn {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+.ws-chip--danger {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+/* Ghi chú + legend */
+.ws-tip {
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.ws-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.ws-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ws-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.ws-dot--existing { background: #0ea5e9; }
+.ws-dot--new { background: #10b981; }
+.ws-dot--delete { background: #f59e0b; }
+.ws-dot--conflict { background: #ef4444; }

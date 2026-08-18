@@ -15,7 +15,7 @@ class WorkExtra(Base):
         ForeignKey("work_extra_types.id"),
         nullable=False,
     )
-    quantity = Column(Integer, nullable=True, default=0)
+    quantity = Column(Float, nullable=True, default=0)
     unit_price = Column(Float, nullable=True, default=0.0)
     amount = Column(Integer, nullable=False, default=0)
     start_time = Column(Time, nullable=True)
@@ -25,3 +25,13 @@ class WorkExtra(Base):
 
     shift = relationship("WorkShift", back_populates="extras")
     extra_type = relationship("WorkExtraType", back_populates="extras")
+
+    @property
+    def type(self) -> str | None:
+        """Mã loại phụ thu (NPC/OT/EXTEND...) để hiển thị."""
+        return self.extra_type.code if self.extra_type else None
+
+    @property
+    def type_name(self) -> str | None:
+        """Tên loại phụ thu để hiển thị."""
+        return self.extra_type.name if self.extra_type else None

@@ -13,6 +13,7 @@ interface ScheduleModalProps {
   submitVariant?: 'primary' | 'danger'
   showDeleteButton?: boolean
   onDelete?: () => void
+  modalClassName?: string
 }
 
 export function ScheduleModal({
@@ -27,6 +28,7 @@ export function ScheduleModal({
   submitVariant = 'primary',
   showDeleteButton = false,
   onDelete,
+  modalClassName,
 }: ScheduleModalProps) {
   if (!isOpen) return null
 
@@ -38,7 +40,7 @@ export function ScheduleModal({
 
   return (
     <div className="schedule-modal-backdrop" onClick={handleBackdropClick}>
-      <div className={`schedule-modal ${isLoading ? 'schedule-modal--loading' : ''}`}>
+      <div className={`schedule-modal ${isLoading ? 'schedule-modal--loading' : ''} ${modalClassName ?? ''}`}>
         <div className="schedule-modal__header">
           <h2 className="schedule-modal__title">{title}</h2>
           <button type="button" className="schedule-modal__close-btn" onClick={onClose} aria-label="Đóng">
