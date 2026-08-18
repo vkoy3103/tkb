@@ -18,8 +18,11 @@ import {
   updateWorkExtra,
 } from '../services/workExtraApi'
 import { fetchWorkExtraTypes } from '../services/workExtraTypeApi'
-import { fetchSettings } from '../services/settingsApi'
+import { fetchSettings, updateSetting } from '../services/settingsApi'
 import type { SettingsEntry, WorkExtra, WorkExtraType, WorkShift } from '../types'
+import { getOtRate, settingsToRates } from '../utils/salary'
+import { calcShiftMoney, getOtStartMinutes } from '../utils/workMoney'
+import '../styles/pages.css'
 
 const fixedShifts = [
   { name: 'SHIFT 1', start: '09:00', end: '13:00' },
@@ -39,36 +42,25 @@ const statusLabel: Record<string, string> = {
   cancelled: 'Đã hủy',
 }
 
-function toMinutes(value?: string | null): number | null {
-  if (!value) return null
-  const [h, m] = value.split(':').map(Number)
-  if (Number.isNaN(h) || Number.isNaN(m)) return null
-  return h * 60 + m
-}
-
-function calcNormalHours(shift: WorkShift): number {
-  if (shift.status === 'cancelled') return 0
-  const scheduledStart = toMinutes(shift.scheduled_start)
-  const scheduledEnd = toMinutes(shift.scheduled_end)
-  if (scheduledStart == null || scheduledEnd == null) return 0
-  const start = toMinutes(shift.actual_start) ?? scheduledStart
-  const actualEnd = toMinutes(shift.actual_end) ?? scheduledEnd
-  const normalEnd = Math.min(actualEnd, scheduledEnd)
-  return Math.max(0, (normalEnd - start) / 60)
-}
-
-function calcOtHours(shift: WorkShift, otStartMinutes: number): number {
-  if (shift.status === 'cancelled') return 0
-  const scheduledEnd = toMinutes(shift.scheduled_end)
-  if (scheduledEnd == null) return 0
-  const actualEnd = toMinutes(shift.actual_end) ?? scheduledEnd
-  const start = Math.max(scheduledEnd, otStartMinutes)
-  if (actualEnd <= start) return 0
-  return Math.max(0, (actualEnd - start) / 60)
-}
-
 const formatVND = (value: number) => `${Math.round(value).toLocaleString('vi-VN')} VNĐ`
 const formatHours = (value: number) => `${(Number(value) || 0).toFixed(1)}h`
+
+// Hiển thị đơn giá gọn: 20000 -> 20k, 40000 -> 40k
+function formatK(value: number): string {
+  if (!value) return '0'
+  if (value >= 1000 && value % 1000 === 0) return `${value / 1000}k`
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}k`
+  return `${value}`
+}
+
+const WEEKDAY_SHORT = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
+function getWeekdayShort(dateStr: string): string {
+  const d = new Date(`${dateStr}T00:00:00`)
+  return WEEKDAY_SHORT[d.getDay()] ?? ''
+}
+function formatDay(dateStr: string): string {
+  return `${dateStr.slice(8, 10)}/${dateStr.slice(5, 7)}`
+}
 
 export default function WorkPage() {
   const [shifts, setShifts] = useState<WorkShift[]>([])
@@ -122,25 +114,26 @@ export default function WorkPage() {
     init()
   }, [])
 
-  const rates = useMemo(() => {
-    const map: Record<string, number> = {}
-    settings.forEach((s) => {
-      if (s.key) {
-        const value = Number(s.value)
-        if (!Number.isNaN(value)) map[s.key] = value
-      }
-    })
-    return map
-  }, [settings])
+  const rates = useMemo(() => settingsToRates(settings), [settings])
 
   // Giờ bắt đầu tính OT (mặc định 22:00) từ settings
-  const otStartMinutes = useMemo(() => {
-    const raw = settings.find((s) => s.key === 'OT_START_TIME')?.value
-    if (raw) {
-      const [h, m] = raw.split(':').map(Number)
-      if (!Number.isNaN(h)) return h * 60 + (m || 0)
-    }
-    return 22 * 60
+  const otStartMinutes = useMemo(() => getOtStartMinutes(settings), [settings])
+
+  // ----- Chỉnh đơn giá ngay trên card (lưu vào settings) -----
+  const [rateDraft, setRateDraft] = useState<Record<string, string>>({})
+  useEffect(() => {
+    setRateDraft((prev) => {
+      const merged = { ...prev }
+      let changed = false
+      ;['NORMAL_RATE', 'NPC_RATE', 'EXTEND_RATE'].forEach((key) => {
+        const setting = settings.find((s) => s.key === key)
+        if (setting?.value != null && merged[key] === undefined) {
+          merged[key] = setting.value
+          changed = true
+        }
+      })
+      return changed ? merged : prev
+    })
   }, [settings])
 
   const extraMap = useMemo(() => {
@@ -155,34 +148,7 @@ export default function WorkPage() {
 
   // ----- Tính tiền cho từng ca -----
   const shiftMoney = useCallback(
-    (shift: WorkShift) => {
-      const normalHours = calcNormalHours(shift)
-      let otHours = calcOtHours(shift, otStartMinutes)
-      let normalIncome = normalHours * (rates.NORMAL_RATE ?? 0)
-      // OT = x2 lương ca thường (2 x NORMAL_RATE)
-      const otRate = 2 * (rates.NORMAL_RATE ?? 0)
-      let otIncome = otHours * otRate
-      let npcIncome = 0
-      let extendIncome = 0
-      for (const extra of extraMap.get(shift.id) ?? []) {
-        const amount = extra.amount ?? 0
-        if (extra.type === 'NPC') npcIncome += amount
-        else if (extra.type === 'EXTEND') extendIncome += amount
-        else {
-          otHours += extra.quantity ?? 0
-          otIncome += amount
-        }
-      }
-      return {
-        normalHours,
-        otHours,
-        normalIncome,
-        otIncome,
-        npcIncome,
-        extendIncome,
-        total: normalIncome + otIncome + npcIncome + extendIncome,
-      }
-    },
+    (shift: WorkShift) => calcShiftMoney(shift, extraMap.get(shift.id) ?? [], rates, otStartMinutes),
     [extraMap, rates, otStartMinutes],
   )
 
@@ -196,19 +162,62 @@ export default function WorkPage() {
     let totalHours = 0
     let otHours = 0
     let otIncome = 0
+    let npcHours = 0
+    let npcIncome = 0
+    let extendCount = 0
+    let extendIncome = 0
     let totalIncome = 0
     let shiftCount = 0
     for (const shift of shifts) {
       if (!shift.date.startsWith(monthKey)) continue
       const money = shiftMoney(shift)
-      totalHours += money.normalHours + money.otHours
+      // Giờ làm chỉ tính ca thường; OT/NPC/EXTEND là làm thêm trong ca, không cộng vào giờ làm
+      totalHours += money.normalHours
       otHours += money.otHours
       otIncome += money.otIncome
+      npcHours += money.npcHours
+      npcIncome += money.npcIncome
+      extendCount += money.extendCount
+      extendIncome += money.extendIncome
       totalIncome += money.total
       shiftCount += 1
     }
-    return { totalHours, otHours, otIncome, totalIncome, shiftCount }
+    return { totalHours, otHours, otIncome, npcHours, npcIncome, extendCount, extendIncome, totalIncome, shiftCount }
   }, [shifts, monthKey, shiftMoney])
+
+  const monthLabel = useMemo(
+    () => new Intl.DateTimeFormat('vi-VN', { month: 'long', year: 'numeric' }).format(new Date()),
+    [],
+  )
+
+  // Các ngày trong tháng hiện tại
+  const monthDays = useMemo(() => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = now.getMonth()
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    return Array.from({ length: daysInMonth }, (_, i) => {
+      const day = i + 1
+      return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    })
+  }, [])
+
+  const todayKey = useMemo(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  }, [])
+
+  // Ca làm theo từng ngày (chỉ trong tháng này)
+  const shiftsByDate = useMemo(() => {
+    const map = new Map<string, WorkShift[]>()
+    for (const shift of shifts) {
+      if (!shift.date.startsWith(monthKey)) continue
+      const list = map.get(shift.date) ?? []
+      list.push(shift)
+      map.set(shift.date, list)
+    }
+    return map
+  }, [shifts, monthKey])
 
   // ----- Handlers: ca làm -----
   const openAddShift = (preset?: Partial<WorkShift>) => {
@@ -253,11 +262,6 @@ export default function WorkPage() {
   const openAddExtra = (shift: WorkShift) => {
     setExtraTargetShift(shift)
     setExtraToEdit(null)
-    setIsExtraModalOpen(true)
-  }
-
-  const openEditExtra = (extra: WorkExtra) => {
-    setExtraToEdit(extra)
     setIsExtraModalOpen(true)
   }
 
@@ -323,8 +327,7 @@ export default function WorkPage() {
   }
 
   // ----- Handlers: thêm ca theo tuần -----
-  const handleSaveWeekShifts = async (drafts: WeekShiftDraft[]) => {
-    setSaving(true)
+  const handleSaveWeekShifts = async (drafts: WeekShiftDraft[]) => {    setSaving(true)
     try {
       await Promise.all(drafts.map((d) => createWorkShift(d)))
       await load()
@@ -344,6 +347,17 @@ export default function WorkPage() {
     }
   }
 
+  // ----- Lưu đơn giá từng ô (lưu khi rời ô hoặc bấm Enter) -----
+  const saveRate = async (key: string) => {
+    setSaving(true)
+    try {
+      await updateSetting(key, { value: rateDraft[key] ?? '' })
+      await load()
+    } finally {
+      setSaving(false)
+    }
+  }
+
   if (loading) {
     return <div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Đang tải ca làm...</div>
   }
@@ -353,53 +367,129 @@ export default function WorkPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="pg-page">
+      <header className="pg-header">
+        <div className="pg-header__left">
+          <div className="pg-header__icon">💼</div>
           <div>
-            <h2 className="text-2xl font-semibold">Work</h2>
-            <p className="mt-2 text-sm text-slate-600">Quản lý ca làm, phụ thu và tính tiền</p>
+            <h2 className="pg-header__title">Work</h2>
+            <p className="pg-header__subtitle">Quản lý ca làm, phụ thu và tính tiền.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setIsWeekModalOpen(true)}
-              className="rounded-2xl border border-emerald-300 bg-emerald-50 px-5 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
-            >
-              🗓️ Thêm ca theo tuần
-            </button>
-          </div>
+        </div>
+        <div className="pg-header__actions">
+          <button type="button" onClick={() => setIsWeekModalOpen(true)} className="pg-btn pg-btn--success">
+            🗓️ Thêm ca theo tuần
+          </button>
         </div>
       </header>
 
       {/* Tổng kết tháng này */}
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Giờ làm tháng này</p>
-          <p className="mt-3 text-3xl font-semibold text-slate-900">{formatHours(monthlySummary.totalHours)}</p>
-          <p className="mt-1 text-sm text-slate-500">{monthlySummary.shiftCount} ca</p>
+      <section className="pg-grid">
+        <article className="pg-stat">
+          <div className="pg-stat__top">
+            <p className="pg-stat__label">Giờ làm tháng này</p>
+            <span className="pg-stat__icon" style={{ background: '#f5f3ff', color: '#7c3aed' }}>⏱️</span>
+          </div>
+          <div className="pg-rate-inline pg-rate-inline--top">
+            <input
+              type="number"
+              min={0}
+              value={rateDraft.NORMAL_RATE ?? ''}
+              onChange={(e) => setRateDraft((prev) => ({ ...prev, NORMAL_RATE: e.target.value }))}
+              onBlur={() => saveRate('NORMAL_RATE')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+              }}
+              className="pg-input pg-rate-inline__input pg-rate-inline__input--lg"
+            />
+            <span className="pg-rate-inline__unit">đ/h</span>
+          </div>
+          <p className="pg-stat__value">{formatHours(monthlySummary.totalHours)}</p>
+          <p className="pg-stat__extra pg-stat__extra--income">
+            = {formatVND(monthlySummary.totalHours * (rates.NORMAL_RATE ?? 0))}
+          </p>
+          <p className="pg-stat__extra">{monthlySummary.shiftCount} ca</p>
         </article>
-        <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Giờ OT</p>
-          <p className="mt-3 text-3xl font-semibold text-amber-600">{formatHours(monthlySummary.otHours)}</p>
-          <p className="mt-1 text-sm text-slate-500">{formatVND(monthlySummary.otIncome)}</p>
+        <article className="pg-stat">
+          <div className="pg-stat__top">
+            <p className="pg-stat__label">Giờ OT</p>
+            <span className="pg-stat__icon" style={{ background: '#fef2f2', color: '#dc2626' }}>🔥</span>
+          </div>
+          <div className="pg-rate-inline pg-rate-inline--top pg-rate-inline--ro" title="OT = 2 × lương cơ bản">
+            <span>{formatK(getOtRate(rates))} đ/h (x2)</span>
+          </div>
+          <p className="pg-stat__value">{formatHours(monthlySummary.otHours)}</p>
+          <p className="pg-stat__extra pg-stat__extra--income">
+            = {formatVND(monthlySummary.otIncome)}
+          </p>
         </article>
-        <article className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-600">Thu nhập tháng này</p>
-          <p className="mt-3 text-3xl font-semibold text-emerald-800">{formatVND(monthlySummary.totalIncome)}</p>
-          <p className="mt-1 text-sm text-emerald-600">Chưa trừ phí</p>
+        <article className="pg-stat">
+          <div className="pg-stat__top">
+            <p className="pg-stat__label">NPC</p>
+            <span className="pg-stat__icon" style={{ background: '#eff6ff', color: '#2563eb' }}>💠</span>
+          </div>
+          <div className="pg-rate-inline pg-rate-inline--top">
+            <input
+              type="number"
+              min={0}
+              value={rateDraft.NPC_RATE ?? ''}
+              onChange={(e) => setRateDraft((prev) => ({ ...prev, NPC_RATE: e.target.value }))}
+              onBlur={() => saveRate('NPC_RATE')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+              }}
+              className="pg-input pg-rate-inline__input pg-rate-inline__input--lg"
+            />
+            <span className="pg-rate-inline__unit">đ/h</span>
+          </div>
+          <p className="pg-stat__value pg-stat__value--sm">{formatHours(monthlySummary.npcHours)}</p>
+          <p className="pg-stat__extra pg-stat__extra--income">
+            = {formatVND(monthlySummary.npcIncome)}
+          </p>
         </article>
-        <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Đơn giá</p>
-          <p className="mt-3 text-sm font-medium text-slate-700">Normal {formatVND(rates.NORMAL_RATE ?? 0)}/h</p>
-          <p className="mt-1 text-sm font-medium text-slate-700">OT {formatVND(2 * (rates.NORMAL_RATE ?? 0))}/h (x2)</p>
+        <article className="pg-stat">
+          <div className="pg-stat__top">
+            <p className="pg-stat__label">EXTEND</p>
+            <span className="pg-stat__icon" style={{ background: '#fefce8', color: '#ca8a04' }}>➕</span>
+          </div>
+          <div className="pg-rate-inline pg-rate-inline--top">
+            <input
+              type="number"
+              min={0}
+              value={rateDraft.EXTEND_RATE ?? ''}
+              onChange={(e) => setRateDraft((prev) => ({ ...prev, EXTEND_RATE: e.target.value }))}
+              onBlur={() => saveRate('EXTEND_RATE')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+              }}
+              className="pg-input pg-rate-inline__input pg-rate-inline__input--lg"
+            />
+            <span className="pg-rate-inline__unit">đ/lần</span>
+          </div>
+          <p className="pg-stat__value pg-stat__value--sm">{monthlySummary.extendCount} lần</p>
+          <p className="pg-stat__extra pg-stat__extra--income">
+            = {formatVND(monthlySummary.extendIncome)}
+          </p>
+        </article>
+        <article className="pg-stat">
+          <div className="pg-stat__top">
+            <p className="pg-stat__label">Thu nhập tháng này</p>
+            <span className="pg-stat__icon" style={{ background: '#ecfdf5', color: '#059669' }}>💰</span>
+          </div>
+          <p className="pg-stat__value">{formatVND(monthlySummary.totalIncome)}</p>
+          <p className="pg-stat__extra">Chưa trừ phí</p>
         </article>
       </section>
 
       {/* Thêm ca nhanh theo khung giờ */}
-      <section>
-        <h3 className="mb-3 text-lg font-semibold">Thêm ca nhanh theo khung giờ</h3>
-        <div className="grid gap-4 md:grid-cols-3">
+      <section className="pg-card">
+        <div className="pg-card__head">
+          <div>
+            <h3 className="pg-card__title">Thêm ca nhanh theo khung giờ</h3>
+            <p className="pg-card__subtitle">Bấm vào một ca để tạo nhanh.</p>
+          </div>
+        </div>
+        <div className="pg-grid">
           {fixedShifts.map((slot) => (
             <button
               key={slot.name}
@@ -412,151 +502,96 @@ export default function WorkPage() {
                   status: 'scheduled',
                 })
               }
-              className="rounded-3xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:border-emerald-300 hover:shadow-md"
+              className="pg-stat pg-stat--clickable"
+              style={{ textAlign: 'left', borderColor: '#c6f6d5', background: 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)' }}
             >
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{slot.name}</p>
-              <p className="mt-4 text-2xl font-semibold text-slate-900">
+              <p className="pg-stat__label">{slot.name}</p>
+              <p className="pg-stat__value" style={{ fontSize: '1.35rem', marginTop: '0.5rem' }}>
                 {slot.start} - {slot.end}
               </p>
-              <p className="mt-2 text-sm text-emerald-600">Bấm để thêm ca ➜</p>
+              <p className="pg-stat__extra pg-stat__extra--income">Bấm để thêm ca ➜</p>
             </button>
           ))}
         </div>
       </section>
 
-      {/* Danh sách ca làm */}
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="text-lg font-semibold">Ca làm</h3>
-        <div className="mt-4 space-y-3">
-          {shifts.length === 0 ? (
-            <p className="text-sm text-slate-500">Chưa có lịch làm. Bấm "＋ Thêm ca làm" để bắt đầu.</p>
-          ) : (
-            shifts.map((shift) => {
-              const money = shiftMoney(shift)
-              const shiftExtras = extraMap.get(shift.id) ?? []
-              return (
-                <div
-                  key={shift.id}
-                  className="cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:border-emerald-300 hover:shadow-md"
-                  onClick={() => openShiftMoney(shift)}
-                  title="Bấm để nhập NPC/OT/EXTEND và xem tiền ca"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-slate-900">{shift.shift_type}</p>
-                        <span className={`rounded-full px-2 py-1 text-xs font-medium ${statusStyle[shift.status] ?? statusStyle.scheduled}`}>
-                          {statusLabel[shift.status] ?? shift.status}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-sm text-slate-600">
-                        {shift.date} · Dự kiến {shift.scheduled_start} - {shift.scheduled_end}
-                        {shift.actual_start && shift.actual_end
-                          ? ` · Thực tế ${shift.actual_start} - ${shift.actual_end}`
-                          : ''}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          openAddExtra(shift)
-                        }}
-                        className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
-                      >
-                        ＋ Phụ thu
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          openEditShift(shift)
-                        }}
-                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
-                      >
-                        ✏️ Sửa
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleQuickDeleteShift(shift)
-                        }}
-                        className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-100"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </div>
-
-                  {shift.note && <p className="mt-2 text-xs italic text-slate-500">📝 {shift.note}</p>}
-
-                  {/* Phụ thu */}
-                  {shiftExtras.length > 0 && (
-                    <div className="mt-3 space-y-2">
-                      {shiftExtras.map((extra) => (
-                        <div
-                          key={extra.id}
-                          className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2"
-                        >
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-full bg-slate-900 px-2 py-1 text-xs font-semibold text-white">
-                              {extra.type_name ?? extra.type ?? 'EXTRA'}
-                            </span>
-                            <span className="text-sm text-slate-600">
-                              {extra.quantity != null ? `${extra.quantity} × ` : ''}
-                              {extra.unit_price != null ? `${Number(extra.unit_price).toLocaleString('vi-VN')}đ` : ''}
-                              {extra.note ? ` · ${extra.note}` : ''}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-slate-900">{formatVND(extra.amount ?? 0)}</span>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                openEditExtra(extra)
-                              }}
-                              className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 transition hover:bg-slate-100"
-                            >
-                              Sửa
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Tiền ca này */}
-                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3">
-                    <span className="rounded-full bg-slate-200 px-2 py-1 text-xs text-slate-700">
-                      NORMAL {formatHours(money.normalHours)} · {formatVND(money.normalIncome)}
-                    </span>
-                    {money.otHours > 0 || money.otIncome > 0 ? (
-                      <span className="rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-700">
-                        OT {formatHours(money.otHours)} · {formatVND(money.otIncome)}
-                      </span>
-                    ) : null}
-                    {money.npcIncome > 0 ? (
-                      <span className="rounded-full bg-indigo-100 px-2 py-1 text-xs text-indigo-700">
-                        NPC · {formatVND(money.npcIncome)}
-                      </span>
-                    ) : null}
-                    {money.extendIncome > 0 ? (
-                      <span className="rounded-full bg-rose-100 px-2 py-1 text-xs text-rose-700">
-                        EXTEND · {formatVND(money.extendIncome)}
-                      </span>
-                    ) : null}
-                    <span className="ml-auto rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">
-                      Tổng {formatVND(money.total)}
-                    </span>
-                  </div>
-                </div>
-              )
-            })
-          )}
+      {/* Lịch làm tháng này */}
+      <section className="pg-card">
+        <div className="pg-card__head">
+          <div>
+            <h3 className="pg-card__title">Lịch làm tháng này</h3>
+            <p className="pg-card__subtitle">
+              {monthLabel} · Bấm vào ô ca làm để nhập NPC/OT/EXTEND và xem chi tiết.
+            </p>
+          </div>
         </div>
+
+        {shiftsByDate.size === 0 ? (
+          <p className="pg-empty">Chưa có lịch làm trong tháng này. Bấm "🗓️ Thêm ca theo tuần" để bắt đầu.</p>
+        ) : (
+          <div className="pg-month-table">
+            <table>
+              <thead>
+                <tr>
+                  <th className="pg-month-th">Ngày</th>
+                  {fixedShifts.map((slot) => (
+                    <th key={slot.name} className="pg-month-th">
+                      {slot.name} · {slot.start}-{slot.end}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {monthDays.map((date) => {
+                  const dayShifts = shiftsByDate.get(date) ?? []
+                  const isToday = date === todayKey
+                  return (
+                    <tr key={date} className={isToday ? 'pg-month-row--today' : ''}>
+                      <td className="pg-month-td pg-month-day">
+                        <span className="pg-month-weekday">{getWeekdayShort(date)}</span>
+                        <span className="pg-month-date">{formatDay(date)}</span>
+                        {isToday ? <span className="pg-month-today-badge">Hôm nay</span> : null}
+                      </td>
+                      {fixedShifts.map((slot) => {
+                        const shift = dayShifts.find((s) => s.shift_type === slot.name)
+                        if (!shift) {
+                          return (
+                            <td key={slot.name} className="pg-month-td pg-month-empty">
+                              —
+                            </td>
+                          )
+                        }
+                        const money = shiftMoney(shift)
+                        return (
+                          <td key={slot.name} className="pg-month-td">
+                            <div className="pg-month-cell">
+                              <button
+                                type="button"
+                                className="pg-month-cell__main"
+                                onClick={() => openShiftMoney(shift)}
+                                title={`${slot.name} ${date} · ${shift.scheduled_start}-${shift.scheduled_end} · Tổng ${formatVND(money.total)}`}
+                              >
+                                <span className="pg-month-cell__money">{formatVND(money.total)}</span>
+                                <span className={`pg-month-cell__status ${statusStyle[shift.status] ?? ''}`}>
+                                  {statusLabel[shift.status] ?? shift.status}
+                                </span>
+                              </button>
+                              <div className="pg-month-cell__actions">
+                                <button type="button" onClick={() => openAddExtra(shift)} title="＋ Phụ thu">＋</button>
+                                <button type="button" onClick={() => openEditShift(shift)} title="✏️ Sửa ca">✏️</button>
+                                <button type="button" onClick={() => handleQuickDeleteShift(shift)} title="🗑️ Xóa ca">🗑️</button>
+                              </div>
+                            </div>
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <WorkShiftEditor

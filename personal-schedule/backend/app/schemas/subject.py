@@ -11,6 +11,8 @@ class SubjectBase(BaseModel):
     color: str | None = None
     note: str | None = None
     is_active: bool = True
+    week_start: int | None = None
+    week_end: int | None = None
 
 
 class SubjectCreate(SubjectBase):
@@ -26,6 +28,8 @@ class SubjectUpdate(BaseModel):
     color: str | None = None
     note: str | None = None
     is_active: bool | None = None
+    week_start: int | None = None
+    week_end: int | None = None
 
 
 class SubjectRead(SubjectBase):

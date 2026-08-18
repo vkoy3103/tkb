@@ -6,6 +6,7 @@ import { fetchWorkShifts } from '../services/workShiftApi'
 import { fetchDayStatistics, fetchMonthStatistics, fetchWeekStatistics } from '../services/statisticsApi'
 import { fetchSettings } from '../services/settingsApi'
 import type { Period, Schedule, SettingsEntry, Statistics, Subject, WorkShift } from '../types'
+import { getOtRate, settingsToRates } from '../utils/salary'
 import '../styles/dashboard.css'
 
 function formatCurrency(value: number) {
@@ -144,16 +145,7 @@ export default function Dashboard() {
   }, [workShifts, selectedDate])
 
   // ----- Tính lương -----
-  const rates = useMemo(() => {
-    const map: Record<string, number> = {}
-    settings.forEach((s) => {
-      if (s.key) {
-        const value = Number(s.value)
-        if (!Number.isNaN(value)) map[s.key] = value
-      }
-    })
-    return map
-  }, [settings])
+  const rates = useMemo(() => settingsToRates(settings), [settings])
 
   const salaryStats = salaryPeriod === 'day' ? todayStats : salaryPeriod === 'week' ? weekStats : monthStats
 
@@ -168,7 +160,7 @@ export default function Dashboard() {
     {
       key: 'ot',
       label: 'OT',
-      detail: `${Number(salaryStats?.ot_hours ?? 0).toFixed(1)} giờ × ${(2 * (rates.NORMAL_RATE ?? 0)).toLocaleString('vi-VN')}đ/giờ (x2)`,
+      detail: `${Number(salaryStats?.ot_hours ?? 0).toFixed(1)} giờ × ${getOtRate(rates).toLocaleString('vi-VN')}đ/giờ (x2)`,
       amount: salaryStats?.ot_income ?? 0,
       color: '#b45309',
     },
@@ -235,33 +227,84 @@ export default function Dashboard() {
 
       <section className="dashboard-grid">
         <div className="dashboard-card">
-          <h3 className="dashboard-card__label">{getDayLabel(selectedDate)}</h3>
-          <p className="dashboard-card__value">{todayStats ? toHours(todayStats.study_hours) : '0.0 giờ'}</p>
-          <p className="dashboard-card__caption">Học</p>
-          <p className="dashboard-card__subvalue">{todayStats ? toHours(todayStats.work_hours) : '0.0 giờ'}</p>
-          <p className="dashboard-card__subcaption">Làm</p>
-          <p className="dashboard-card__subvalue">{todayStats ? formatCurrency(todayStats.total_income) : '0 VNĐ'}</p>
-          <p className="dashboard-card__subcaption">Lương</p>
+          <div className="dashboard-card__top">
+            <h3 className="dashboard-card__label">{getDayLabel(selectedDate)}</h3>
+            <span className="dashboard-card__badge">Hôm nay</span>
+          </div>
+          <div className="dashboard-card__income">
+            <p className="dashboard-card__income-label">Thu nhập</p>
+            <p className="dashboard-card__income-value">{todayStats ? formatCurrency(todayStats.total_income) : '0 VNĐ'}</p>
+          </div>
+          <div className="dashboard-card__metrics">
+            <div className="dashboard-card__metric">
+              <span className="dashboard-card__metric-icon dashboard-card__metric-icon--study">📚</span>
+              <div className="dashboard-card__metric-text">
+                <p className="dashboard-card__metric-value">{todayStats ? toHours(todayStats.study_hours) : '0.0 giờ'}</p>
+                <p className="dashboard-card__metric-label">Học</p>
+              </div>
+            </div>
+            <div className="dashboard-card__metric">
+              <span className="dashboard-card__metric-icon dashboard-card__metric-icon--work">💼</span>
+              <div className="dashboard-card__metric-text">
+                <p className="dashboard-card__metric-value">{todayStats ? toHours(todayStats.work_hours) : '0.0 giờ'}</p>
+                <p className="dashboard-card__metric-label">Làm</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="dashboard-card">
-          <h3 className="dashboard-card__label">Tuần này</h3>
-          <p className="dashboard-card__value">{weekStats ? toHours(weekStats.study_hours) : '0.0 giờ'}</p>
-          <p className="dashboard-card__caption">Học</p>
-          <p className="dashboard-card__subvalue">{weekStats ? toHours(weekStats.work_hours) : '0.0 giờ'}</p>
-          <p className="dashboard-card__subcaption">Làm</p>
-          <p className="dashboard-card__subvalue">{weekStats ? formatCurrency(weekStats.total_income) : '0 VNĐ'}</p>
-          <p className="dashboard-card__subcaption">Lương</p>
+          <div className="dashboard-card__top">
+            <h3 className="dashboard-card__label">Tuần này</h3>
+            <span className="dashboard-card__badge">Tuần</span>
+          </div>
+          <div className="dashboard-card__income">
+            <p className="dashboard-card__income-label">Thu nhập</p>
+            <p className="dashboard-card__income-value">{weekStats ? formatCurrency(weekStats.total_income) : '0 VNĐ'}</p>
+          </div>
+          <div className="dashboard-card__metrics">
+            <div className="dashboard-card__metric">
+              <span className="dashboard-card__metric-icon dashboard-card__metric-icon--study">📚</span>
+              <div className="dashboard-card__metric-text">
+                <p className="dashboard-card__metric-value">{weekStats ? toHours(weekStats.study_hours) : '0.0 giờ'}</p>
+                <p className="dashboard-card__metric-label">Học</p>
+              </div>
+            </div>
+            <div className="dashboard-card__metric">
+              <span className="dashboard-card__metric-icon dashboard-card__metric-icon--work">💼</span>
+              <div className="dashboard-card__metric-text">
+                <p className="dashboard-card__metric-value">{weekStats ? toHours(weekStats.work_hours) : '0.0 giờ'}</p>
+                <p className="dashboard-card__metric-label">Làm</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="dashboard-card">
-          <h3 className="dashboard-card__label">Tháng này</h3>
-          <p className="dashboard-card__value">{monthStats ? toHours(monthStats.study_hours) : '0.0 giờ'}</p>
-          <p className="dashboard-card__caption">Học</p>
-          <p className="dashboard-card__subvalue">{monthStats ? toHours(monthStats.work_hours) : '0.0 giờ'}</p>
-          <p className="dashboard-card__subcaption">Làm</p>
-          <p className="dashboard-card__subvalue">{monthStats ? formatCurrency(monthStats.total_income) : '0 VNĐ'}</p>
-          <p className="dashboard-card__subcaption">Lương</p>
+          <div className="dashboard-card__top">
+            <h3 className="dashboard-card__label">Tháng này</h3>
+            <span className="dashboard-card__badge">Tháng</span>
+          </div>
+          <div className="dashboard-card__income">
+            <p className="dashboard-card__income-label">Thu nhập</p>
+            <p className="dashboard-card__income-value">{monthStats ? formatCurrency(monthStats.total_income) : '0 VNĐ'}</p>
+          </div>
+          <div className="dashboard-card__metrics">
+            <div className="dashboard-card__metric">
+              <span className="dashboard-card__metric-icon dashboard-card__metric-icon--study">📚</span>
+              <div className="dashboard-card__metric-text">
+                <p className="dashboard-card__metric-value">{monthStats ? toHours(monthStats.study_hours) : '0.0 giờ'}</p>
+                <p className="dashboard-card__metric-label">Học</p>
+              </div>
+            </div>
+            <div className="dashboard-card__metric">
+              <span className="dashboard-card__metric-icon dashboard-card__metric-icon--work">💼</span>
+              <div className="dashboard-card__metric-text">
+                <p className="dashboard-card__metric-value">{monthStats ? toHours(monthStats.work_hours) : '0.0 giờ'}</p>
+                <p className="dashboard-card__metric-label">Làm</p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -337,7 +380,7 @@ export default function Dashboard() {
                   : `${schedule.start_period} - ${schedule.end_period}`
 
                 return (
-                  <div key={schedule.id} className="dashboard-item">
+                  <div key={schedule.id} className="dashboard-item dashboard-item--study">
                     <p className="dashboard-item__title">{label}</p>
                     <p className="dashboard-item__meta">
                       {target.toLocaleDateString('vi-VN')} · {timeRange} · {schedule.room || 'Không có phòng'}
@@ -356,7 +399,7 @@ export default function Dashboard() {
               <p className="dashboard-empty">Chưa có ca làm.</p>
             ) : (
               upcomingShifts.map((shift) => (
-                <div key={shift.id} className="dashboard-item">
+                <div key={shift.id} className="dashboard-item dashboard-item--work">
                   <p className="dashboard-item__title">{shift.shift_type}</p>
                   <p className="dashboard-item__meta">{shift.date} · {shift.scheduled_start} - {shift.scheduled_end}</p>
                 </div>

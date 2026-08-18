@@ -19,7 +19,7 @@ import {
   fetchScheduleOverrides,
   updateScheduleOverride,
 } from '../services/scheduleOverrideApi'
-import { fetchSubjects } from '../services/subjectApi'
+import { deleteSubject, fetchSubjects, updateSubject } from '../services/subjectApi'
 import { createWorkShift, deleteWorkShift, fetchWorkShifts, syncWorkShiftExtras } from '../services/workShiftApi'
 import { fetchWorkExtras } from '../services/workExtraApi'
 import { fetchSettings } from '../services/settingsApi'
@@ -63,12 +63,6 @@ export default function SchedulePage() {
   const [scheduleOverrides, setScheduleOverrides] = useState<ScheduleOverride[]>([])
   const [workShifts, setWorkShifts] = useState<WorkShift[]>([])
   const [form, setForm] = useState(emptyForm)
-  const [holidayForm, setHolidayForm] = useState({
-    class_schedule_id: '',
-    date: '',
-    reason: '',
-    note: '',
-  })
   const [cancelTarget, setCancelTarget] = useState<{
     schedule: Schedule
     date: string
@@ -102,19 +96,7 @@ export default function SchedulePage() {
   const [cancelReason, setCancelReason] = useState('')
   const [cancelNote, setCancelNote] = useState('')
   const [cancelLoading, setCancelLoading] = useState(false)
-  const [makeupForm, setMakeupForm] = useState({
-    class_schedule_id: '',
-    date: '',
-    new_date: '',
-    new_start_period: '',
-    new_end_period: '',
-    new_room: '',
-    reason: '',
-    note: '',
-  })
   const [editingId, setEditingId] = useState<number | null>(null)
-  const [holidayEditingId, setHolidayEditingId] = useState<number | null>(null)
-  const [makeupEditingId, setMakeupEditingId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -309,6 +291,47 @@ export default function SchedulePage() {
     setIsEditModalOpen(true)
   }
 
+  const handleUpdateSubject = async (id: number, data: Partial<Subject>) => {
+    const current = subjects.find((s) => s.id === id)
+    if (!current) return
+    try {
+      const payload = {
+        name: data.name ?? current.name,
+        code: data.code !== undefined ? data.code : current.code,
+        credits: current.credits,
+        teacher: data.teacher !== undefined ? data.teacher : current.teacher,
+        default_room: data.default_room !== undefined ? data.default_room : current.default_room,
+        color: data.color !== undefined ? data.color : current.color,
+        week_start: data.week_start !== undefined ? data.week_start : current.week_start,
+        week_end: data.week_end !== undefined ? data.week_end : current.week_end,
+        note: current.note,
+        is_active: current.is_active,
+      }
+      const updated = await updateSubject(id, payload)
+      setSubjects((prev) => prev.map((s) => (s.id === id ? updated : s)))
+    } catch {
+      alert('Không thể cập nhật môn học.')
+    }
+  }
+
+  const handleDeleteSubject = async (id: number) => {
+    try {
+      await deleteSubject(id)
+      setSubjects((prev) => prev.filter((s) => s.id !== id))
+    } catch {
+      alert('Không thể xóa môn học.')
+    }
+  }
+
+  const handleUpdateSchedule = async (scheduleId: number, data: Partial<Schedule>) => {
+    try {
+      const updated = await updateSchedule(scheduleId, data)
+      setSchedules((current) => current.map((s) => (s.id === scheduleId ? updated : s)))
+    } catch {
+      alert('Không thể cập nhật lịch học của môn.')
+    }
+  }
+
   const handleSaveWorkShiftWeek = async (toCreate: WeekShiftDraft[], toDeleteIds: number[]) => {
     setSaving(true)
     try {
@@ -360,30 +383,6 @@ export default function SchedulePage() {
   const resetForm = () => {
     setForm(emptyForm)
     setEditingId(null)
-  }
-
-  const resetHolidayForm = () => {
-    setHolidayForm({
-      class_schedule_id: '',
-      date: '',
-      reason: '',
-      note: '',
-    })
-    setHolidayEditingId(null)
-  }
-
-  const resetMakeupForm = () => {
-    setMakeupForm({
-      class_schedule_id: '',
-      date: '',
-      new_date: '',
-      new_start_period: '',
-      new_end_period: '',
-      new_room: '',
-      reason: '',
-      note: '',
-    })
-    setMakeupEditingId(null)
   }
 
   const startEdit = (schedule: Schedule) => {
@@ -442,111 +441,6 @@ export default function SchedulePage() {
       }
     } catch {
       setError('Không thể xoá lịch học này.')
-    }
-  }
-
-  const submitHoliday = async () => {
-    if (!holidayForm.class_schedule_id || !holidayForm.date) {
-      setError('Vui lòng chọn lịch học và ngày nghỉ.')
-      return
-    }
-
-    const payload = {
-      class_schedule_id: Number(holidayForm.class_schedule_id),
-      date: holidayForm.date,
-      type: 'cancel',
-      new_date: null,
-      new_start_period: null,
-      new_end_period: null,
-      new_room: null,
-      reason: holidayForm.reason || null,
-      note: holidayForm.note || null,
-    }
-
-    try {
-      if (holidayEditingId !== null) {
-        const updated = await updateScheduleOverride(holidayEditingId, payload)
-        setScheduleOverrides((current) => current.map((item) => (item.id === holidayEditingId ? updated : item)))
-      } else {
-        const created = await createScheduleOverride(payload)
-        setScheduleOverrides((current) => [created, ...current])
-      }
-      resetHolidayForm()
-      setError('')
-    } catch {
-      setError('Không thể lưu lịch nghỉ học. Vui lòng kiểm tra dữ liệu.')
-    }
-  }
-
-  const submitMakeup = async () => {
-    if (!makeupForm.class_schedule_id || !makeupForm.date) {
-      setError('Vui lòng chọn lịch học và ngày học bù.')
-      return
-    }
-
-    const payload = {
-      class_schedule_id: Number(makeupForm.class_schedule_id),
-      date: makeupForm.date,
-      type: 'make_up',
-      new_date: makeupForm.new_date || null,
-      new_start_period: makeupForm.new_start_period ? Number(makeupForm.new_start_period) : null,
-      new_end_period: makeupForm.new_end_period ? Number(makeupForm.new_end_period) : null,
-      new_room: makeupForm.new_room || null,
-      reason: makeupForm.reason || null,
-      note: makeupForm.note || null,
-    }
-
-    try {
-      if (makeupEditingId !== null) {
-        const updated = await updateScheduleOverride(makeupEditingId, payload)
-        setScheduleOverrides((current) => current.map((item) => (item.id === makeupEditingId ? updated : item)))
-      } else {
-        const created = await createScheduleOverride(payload)
-        setScheduleOverrides((current) => [created, ...current])
-      }
-      resetMakeupForm()
-      setError('')
-    } catch {
-      setError('Không thể lưu lịch học bù. Vui lòng kiểm tra dữ liệu.')
-    }
-  }
-
-  const startEditHoliday = (override: ScheduleOverride) => {
-    setHolidayEditingId(override.id)
-    setHolidayForm({
-      class_schedule_id: String(override.class_schedule_id),
-      date: override.date,
-      reason: override.reason || '',
-      note: override.note || '',
-    })
-  }
-
-  const startEditMakeup = (override: ScheduleOverride) => {
-    setMakeupEditingId(override.id)
-    setMakeupForm({
-      class_schedule_id: String(override.class_schedule_id),
-      date: override.date,
-      new_date: override.new_date || '',
-      new_start_period: override.new_start_period ? String(override.new_start_period) : '',
-      new_end_period: override.new_end_period ? String(override.new_end_period) : '',
-      new_room: override.new_room || '',
-      reason: override.reason || '',
-      note: override.note || '',
-    })
-  }
-
-  const removeOverride = async (overrideId: number) => {
-    try {
-      await deleteScheduleOverride(overrideId)
-      setScheduleOverrides((current) => current.filter((item) => item.id !== overrideId))
-      if (holidayEditingId === overrideId) {
-        resetHolidayForm()
-      }
-      if (makeupEditingId === overrideId) {
-        resetMakeupForm()
-      }
-    } catch {
-      setError('Không thể xoá lịch nghỉ học bù.')
     }
   }
 
@@ -678,10 +572,15 @@ return (
           periods={periods}
           scheduleOverrides={scheduleOverrides}
           workShifts={workShifts}
+          workExtras={workExtras}
+          settings={settings}
           onScheduleClick={handleScheduleClick}
           onScheduleContextMenu={handleScheduleContextMenu}
           onAddSchedule={handleAddNewSchedule}
           onAddWorkShiftWeek={handleAddWorkShiftWeek}
+          onUpdateSubject={handleUpdateSubject}
+          onDeleteSubject={handleDeleteSubject}
+          onUpdateSchedule={handleUpdateSchedule}
         />
       </div>
 
@@ -839,259 +738,6 @@ return (
         </section>
       </div>
 
-      <section className="schedule-card schedule-override-card">
-        <div className="schedule-card__header">
-          <div>
-            <h3 className="schedule-card__title">Quản lý lịch nghỉ và học bù</h3>
-            <p className="schedule-card__subtitle">Tách riêng lịch nghỉ học và lịch học bù để thầy cô dễ theo dõi.</p>
-          </div>
-        </div>
-
-        <div className="schedule-override-grid">
-          <div className="schedule-override-panel">
-            <h4 className="schedule-card__title schedule-card__title--small">Nghỉ học</h4>
-
-            <div className="schedule-form-grid schedule-form-grid--override">
-              <label className="schedule-field schedule-field--full">
-                <span>Lịch học</span>
-                <select
-                  value={holidayForm.class_schedule_id}
-                  onChange={(e) => setHolidayForm({ ...holidayForm, class_schedule_id: e.target.value })}
-                  className="schedule-input"
-                >
-                  <option value="">-- Chọn lịch --</option>
-                  {schedules.map((schedule) => {
-                    const subject = subjects.find((item) => item.id === schedule.subject_id)
-                    return (
-                      <option key={schedule.id} value={schedule.id}>
-                        {subject?.name ?? 'Môn học'} · Tiết {schedule.start_period}-{schedule.end_period}
-                      </option>
-                    )
-                  })}
-                </select>
-              </label>
-
-              <label className="schedule-field schedule-field--full">
-                <span>Ngày nghỉ</span>
-                <input
-                  type="date"
-                  value={holidayForm.date}
-                  onChange={(e) => setHolidayForm({ ...holidayForm, date: e.target.value })}
-                  className="schedule-input"
-                />
-              </label>
-
-              <label className="schedule-field schedule-field--full">
-                <span>Lý do</span>
-                <input
-                  value={holidayForm.reason}
-                  onChange={(e) => setHolidayForm({ ...holidayForm, reason: e.target.value })}
-                  placeholder="VD: Nghỉ lễ, có việc"
-                  className="schedule-input"
-                />
-              </label>
-
-              <label className="schedule-field schedule-field--full">
-                <span>Ghi chú</span>
-                <textarea
-                  value={holidayForm.note}
-                  onChange={(e) => setHolidayForm({ ...holidayForm, note: e.target.value })}
-                  rows={3}
-                  className="schedule-input schedule-textarea"
-                />
-              </label>
-            </div>
-
-            <div className="schedule-actions">
-              <button type="button" onClick={submitHoliday} className="schedule-primary-button">
-                {holidayEditingId ? 'Cập nhật' : 'Lưu nghỉ học'}
-              </button>
-              <button type="button" onClick={resetHolidayForm} className="schedule-secondary-button">
-                Reset
-              </button>
-            </div>
-
-            <div className="schedule-list schedule-list--override">
-              {scheduleOverrides.filter((item) => item.type === 'cancel').length === 0 ? (
-                <div className="schedule-empty-state">Chưa có lịch nghỉ học.</div>
-              ) : (
-                scheduleOverrides
-                  .filter((item) => item.type === 'cancel')
-                  .map((override) => {
-                    const schedule = schedules.find((item) => item.id === override.class_schedule_id)
-                    const subject = schedule ? subjects.find((item) => item.id === schedule.subject_id) : undefined
-                    return (
-                      <div key={override.id} className="schedule-item schedule-item--override">
-                        <div className="schedule-item__content">
-                          <p className="schedule-item__name">{subject?.name ?? 'Môn học'} · Nghỉ học</p>
-                          <p className="schedule-item__meta">{override.date}</p>
-                          {override.reason && <p className="schedule-item__note">{override.reason}</p>}
-                        </div>
-
-                        <div className="schedule-item__actions">
-                          <button type="button" onClick={() => startEditHoliday(override)} className="schedule-action-button schedule-action-button--edit">
-                            Sửa
-                          </button>
-                          <button type="button" onClick={() => removeOverride(override.id)} className="schedule-action-button schedule-action-button--delete">
-                            Xoá
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })
-              )}
-            </div>
-          </div>
-
-          <div className="schedule-override-panel">
-            <h4 className="schedule-card__title schedule-card__title--small">Học bù</h4>
-
-            <div className="schedule-form-grid schedule-form-grid--override">
-              <label className="schedule-field schedule-field--full">
-                <span>Lịch học</span>
-                <select
-                  value={makeupForm.class_schedule_id}
-                  onChange={(e) => setMakeupForm({ ...makeupForm, class_schedule_id: e.target.value })}
-                  className="schedule-input"
-                >
-                  <option value="">-- Chọn lịch --</option>
-                  {schedules.map((schedule) => {
-                    const subject = subjects.find((item) => item.id === schedule.subject_id)
-                    return (
-                      <option key={schedule.id} value={schedule.id}>
-                        {subject?.name ?? 'Môn học'} · Tiết {schedule.start_period}-{schedule.end_period}
-                      </option>
-                    )
-                  })}
-                </select>
-              </label>
-
-              <label className="schedule-field schedule-field--full">
-                <span>Ngày học bù</span>
-                <input
-                  type="date"
-                  value={makeupForm.date}
-                  onChange={(e) => setMakeupForm({ ...makeupForm, date: e.target.value })}
-                  className="schedule-input"
-                />
-              </label>
-
-              <label className="schedule-field">
-                <span>Ngày mới</span>
-                <input
-                  type="date"
-                  value={makeupForm.new_date}
-                  onChange={(e) => setMakeupForm({ ...makeupForm, new_date: e.target.value })}
-                  className="schedule-input"
-                />
-              </label>
-
-              <label className="schedule-field">
-                <span>Phòng</span>
-                <input
-                  value={makeupForm.new_room}
-                  onChange={(e) => setMakeupForm({ ...makeupForm, new_room: e.target.value })}
-                  placeholder="VD: B301"
-                  className="schedule-input"
-                />
-              </label>
-
-              <label className="schedule-field">
-                <span>Tiết bắt đầu</span>
-                <select
-                  value={makeupForm.new_start_period}
-                  onChange={(e) => setMakeupForm({ ...makeupForm, new_start_period: e.target.value })}
-                  className="schedule-input"
-                >
-                  <option value="">-- Chọn --</option>
-                  {periodOptions.map((period) => (
-                    <option key={period.id} value={period.period_number}>Tiết {period.period_number}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="schedule-field">
-                <span>Tiết kết thúc</span>
-                <select
-                  value={makeupForm.new_end_period}
-                  onChange={(e) => setMakeupForm({ ...makeupForm, new_end_period: e.target.value })}
-                  className="schedule-input"
-                >
-                  <option value="">-- Chọn --</option>
-                  {periodOptions.map((period) => (
-                    <option key={period.id} value={period.period_number}>Tiết {period.period_number}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="schedule-field schedule-field--full">
-                <span>Lý do</span>
-                <input
-                  value={makeupForm.reason}
-                  onChange={(e) => setMakeupForm({ ...makeupForm, reason: e.target.value })}
-                  placeholder="VD: Học bù theo kế hoạch"
-                  className="schedule-input"
-                />
-              </label>
-
-              <label className="schedule-field schedule-field--full">
-                <span>Ghi chú</span>
-                <textarea
-                  value={makeupForm.note}
-                  onChange={(e) => setMakeupForm({ ...makeupForm, note: e.target.value })}
-                  rows={3}
-                  className="schedule-input schedule-textarea"
-                />
-              </label>
-            </div>
-
-            <div className="schedule-actions">
-              <button type="button" onClick={submitMakeup} className="schedule-primary-button">
-                {makeupEditingId ? 'Cập nhật' : 'Lưu học bù'}
-              </button>
-              <button type="button" onClick={resetMakeupForm} className="schedule-secondary-button">
-                Reset
-              </button>
-            </div>
-
-            <div className="schedule-list schedule-list--override">
-              {scheduleOverrides.filter((item) => item.type === 'make_up').length === 0 ? (
-                <div className="schedule-empty-state">Chưa có lịch học bù.</div>
-              ) : (
-                scheduleOverrides
-                  .filter((item) => item.type === 'make_up')
-                  .map((override) => {
-                    const schedule = schedules.find((item) => item.id === override.class_schedule_id)
-                    const subject = schedule ? subjects.find((item) => item.id === schedule.subject_id) : undefined
-                    return (
-                      <div key={override.id} className="schedule-item schedule-item--override">
-                        <div className="schedule-item__content">
-                          <p className="schedule-item__name">{subject?.name ?? 'Môn học'} · Học bù</p>
-                          <p className="schedule-item__meta">
-                            {override.date}
-                            {override.new_date ? ` → ${override.new_date}` : ''}
-                            {override.new_start_period && override.new_end_period ? ` · Tiết ${override.new_start_period}-${override.new_end_period}` : ''}
-                            {override.new_room ? ` · ${override.new_room}` : ''}
-                          </p>
-                          {override.reason && <p className="schedule-item__note">{override.reason}</p>}
-                        </div>
-
-                        <div className="schedule-item__actions">
-                          <button type="button" onClick={() => startEditMakeup(override)} className="schedule-action-button schedule-action-button--edit">
-                            Sửa
-                          </button>
-                          <button type="button" onClick={() => removeOverride(override.id)} className="schedule-action-button schedule-action-button--delete">
-                            Xoá
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
     </div>
   </>
 )

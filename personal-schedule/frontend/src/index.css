@@ -19,7 +19,8 @@
   letter-spacing: 0.18px;
   color-scheme: light dark;
   color: var(--text);
-  background: var(--bg);
+  /* Nền trang luôn sáng (app dùng light theme) — không theo --bg để tránh nền đen ở dark mode */
+  background: #f8fafc;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -44,6 +45,8 @@
     --shadow:
       rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
   }
+
+  /* Giữ nền trang luôn sáng dù hệ điều hành đang ở dark mode */
 
   #social .button-icon {
     filter: invert(1) brightness(2);

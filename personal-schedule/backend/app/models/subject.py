@@ -14,6 +14,8 @@ class Subject(Base):
     teacher = Column(String(120), nullable=True)
     default_room = Column(String(80), nullable=True)
     color = Column(String(30), nullable=True)
+    week_start = Column(Integer, nullable=True)
+    week_end = Column(Integer, nullable=True)
     note = Column(Text, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

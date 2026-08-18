@@ -7,6 +7,7 @@ import {
   ScheduleToast,
 } from './ScheduleEditor'
 import type { SettingsEntry, WorkExtra, WorkShift } from '../types'
+import { getOtRate, settingsToRates } from '../utils/salary'
 
 const statusOptions = [
   { value: 'scheduled', label: 'Theo lịch' },
@@ -125,16 +126,7 @@ export function ShiftMoneyEditor({
     type: 'success' | 'error' | 'info'
   } | null>(null)
 
-  const rates = useMemo(() => {
-    const map: Record<string, number> = {}
-    settings.forEach((s) => {
-      if (s.key) {
-        const value = Number(s.value)
-        if (!Number.isNaN(value)) map[s.key] = value
-      }
-    })
-    return map
-  }, [settings])
+  const rates = useMemo(() => settingsToRates(settings), [settings])
 
   useEffect(() => {
     if (!isOpen || !shift) return
@@ -153,8 +145,8 @@ export function ShiftMoneyEditor({
   const normalHours = calcNormalHours(shift)
   const normalIncome = normalHours * (rates.NORMAL_RATE ?? 0)
   const npcIncome = parseNum(npcHours) * (rates.NPC_RATE ?? 0)
-  // OT = x2 lương ca thường (2 x NORMAL_RATE)
-  const otRate = 2 * (rates.NORMAL_RATE ?? 0)
+  // OT = x2 lương ca thường (2 x NORMAL_RATE) — lấy từ util chung
+  const otRate = getOtRate(rates)
   const otIncome = parseNum(otHours) * otRate
   const extendIncome = parseNum(extendCount) * (rates.EXTEND_RATE ?? 0)
   const total = normalIncome + npcIncome + otIncome + extendIncome

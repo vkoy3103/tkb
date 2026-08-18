@@ -11,7 +11,10 @@ export async function createSchedule(schedule: Omit<Schedule, 'id' | 'created_at
   return response.data
 }
 
-export async function updateSchedule(scheduleId: number, schedule: Omit<Schedule, 'id' | 'created_at' | 'updated_at'>) {
+export async function updateSchedule(
+  scheduleId: number,
+  schedule: Partial<Omit<Schedule, 'id' | 'created_at' | 'updated_at'>>,
+) {
   const response = await api.put<Schedule>(`/schedules/${scheduleId}`, schedule)
   return response.data
 }

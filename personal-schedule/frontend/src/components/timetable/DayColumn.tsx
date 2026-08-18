@@ -1,6 +1,8 @@
 import type { Subject } from '../../types'
 import { TIME_SLOTS, getTimeRow } from '../../utils/timeUtils'
 
+const formatVND = (value: number) => `${Math.round(value).toLocaleString('vi-VN')}đ`
+
 type TimetableSchedule = {
   id: number | string
   subject_id: number
@@ -15,6 +17,7 @@ type TimetableSchedule = {
   _isMakeup?: boolean
   shift_type?: string
   status?: string
+  _amount?: number
 }
 
 type ScheduleOverride = {
@@ -115,6 +118,8 @@ export function DayColumn({
           }
 
           const span = Math.max(1, endIndex - startIndex)
+          // Ô quá ngắn (1 tiết) → hiển thị gọn, thông tin đầy đủ qua tooltip khi hover
+          const isCompact = span <= 1
 
           const rowStart = startIndex >= 0 ? startIndex + 1 : 1
 
@@ -137,7 +142,12 @@ export function DayColumn({
           return (
             <div
               key={`${schedule.id}-${date}`}
-              className={`timetable-lesson-block cursor-pointer ${isWork ? 'timetable-lesson-block--work' : ''} ${isMakeup ? 'timetable-lesson-block--makeup' : ''} ${isCancelled ? 'timetable-lesson-block--cancelled' : ''}`}
+              className={`timetable-lesson-block cursor-pointer ${isWork ? 'timetable-lesson-block--work' : ''} ${isMakeup ? 'timetable-lesson-block--makeup' : ''} ${isCancelled ? 'timetable-lesson-block--cancelled' : ''} ${isCompact ? 'timetable-lesson-block--compact' : ''}`}
+              title={
+                isWork
+                  ? `Ca làm${schedule.shift_type ? ` · ${schedule.shift_type}` : ''}\n${startTime} - ${endTime}\n${schedule.status || ''}`
+                  : `${subject?.name ?? 'Môn học'}${isMakeup ? ' (học bù)' : ''}\n${startTime} - ${endTime}\n${schedule.room || 'Không có phòng'}`
+              }
               style={{
                 gridRow: `${rowStart} / span ${span}`,
                 background: isCancelled
@@ -190,11 +200,17 @@ export function DayColumn({
                       : `${subject?.name ?? 'Môn học'} ${isMakeup ? ' • Học bù' : ''}`}
                   </div>
 
-                  <div className="timetable-lesson-block__meta">
+                  <div className="timetable-lesson-block__meta timetable-lesson-block__meta--time">
                     {startTime} - {endTime}
                   </div>
 
-                  <div className="timetable-lesson-block__meta">
+                  {isWork && schedule._amount != null ? (
+                    <div className="timetable-lesson-block__meta timetable-lesson-block__money">
+                      💰 {formatVND(schedule._amount)}
+                    </div>
+                  ) : null}
+
+                  <div className="timetable-lesson-block__meta timetable-lesson-block__meta--room">
                     {isWork
                       ? schedule.status === 'done'
                         ? '✓ Đã làm'

@@ -6,19 +6,7 @@ from app.models.period import Period
 from app.models.schedule import Schedule
 from app.models.work_extra import WorkExtra
 from app.models.work_shift import WorkShift
-from app.services.settings_service import get_settings
-
-
-def get_settings_map() -> dict[str, float]:
-    settings = get_settings()
-    values = {}
-    for setting in settings:
-        key = setting.key.upper()
-        try:
-            values[key] = float(setting.value or 0)
-        except (TypeError, ValueError):
-            values[key] = 0.0
-    return values
+from app.services.settings_service import get_rates, get_settings
 
 
 def get_ot_start_time() -> dt_time:
@@ -92,7 +80,7 @@ def get_study_hours(db: Session, start_date: date, end_date: date) -> float:
 
 
 def make_statistics(db: Session, start_date: date, end_date: date) -> dict:
-    settings = get_settings_map()
+    settings = get_rates()
     shifts = get_shifts_in_range(db, start_date, end_date)
     extras = get_extras_in_range(db, start_date, end_date)
     study_hours = get_study_hours(db, start_date, end_date)
@@ -115,8 +103,8 @@ def make_statistics(db: Session, start_date: date, end_date: date) -> dict:
             extend_count += int(extra.quantity or 0)
 
     normal_rate = settings.get("NORMAL_RATE", 0.0)
-    # OT = x2 lương ca thường (2 x NORMAL_RATE), không phải đơn giá cố định
-    ot_rate = 2.0 * normal_rate
+    # OT = x2 lương ca thường — get_rates() đã tính OT_RATE = 2 x NORMAL_RATE
+    ot_rate = settings.get("OT_RATE", 0.0)
     normal_income = int(round(normal_hours * normal_rate))
     ot_income = int(round(ot_hours * ot_rate))
     npc_income = int(round(npc_hours * settings.get("NPC_RATE", 0.0)))
@@ -124,7 +112,8 @@ def make_statistics(db: Session, start_date: date, end_date: date) -> dict:
 
     return {
         "study_hours": round(study_hours, 2),
-        "work_hours": round(normal_hours + npc_hours + ot_hours, 2),
+        # Giờ làm = chỉ ca thường (ca làm); NPC/OT/EXTEND là phụ thu/làm thêm trong ca, KHÔNG cộng vào giờ làm
+        "work_hours": round(normal_hours, 2),
         "normal_hours": round(normal_hours, 2),
         "npc_hours": round(npc_hours, 2),
         "ot_hours": round(ot_hours, 2),

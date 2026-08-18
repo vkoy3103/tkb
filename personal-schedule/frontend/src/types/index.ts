@@ -6,6 +6,8 @@ export interface Subject {
   teacher?: string | null
   default_room?: string | null
   color?: string | null
+  week_start?: number | null
+  week_end?: number | null
   note?: string | null
   is_active: boolean
   created_at: string

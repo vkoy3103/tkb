@@ -354,11 +354,6 @@ def seed_database():
                 description="Tiền NPC theo giờ",
             ),
             Setting(
-                key="OT_RATE",
-                value="40000",
-                description="Tiền OT theo giờ, gấp đôi NORMAL",
-            ),
-            Setting(
                 key="EXTEND_RATE",
                 value="50000",
                 description="Tiền mỗi lần EXTEND",

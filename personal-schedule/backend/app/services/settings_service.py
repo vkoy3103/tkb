@@ -19,12 +19,26 @@ def get_settings() -> list[Setting]:
         return get_settings_db(db)
 
 
+def get_rates() -> dict[str, float]:
+    """Bảng đơn giá hiệu lực đọc từ settings.
+    QUY TẮC: OT LUÔN = 2 x NORMAL_RATE (x2 lương cơ bản)."""
+    with SessionLocal() as db:
+        values: dict[str, float] = {}
+        for setting in get_settings_db(db):
+            key = setting.key.upper()
+            try:
+                values[key] = float(setting.value or 0)
+            except (TypeError, ValueError):
+                values[key] = 0.0
+        values["OT_RATE"] = 2.0 * values.get("NORMAL_RATE", 0.0)
+        return values
+
+
 def ensure_default_settings() -> None:
     with SessionLocal() as db:
         default_rows = [
             ("NORMAL_RATE", "20000", "Lương ca NORMAL theo giờ"),
             ("NPC_RATE", "20000", "Tiền NPC theo giờ"),
-            ("OT_RATE", "40000", "Tiền OT theo giờ"),
             ("EXTEND_RATE", "50000", "Tiền mỗi lần EXTEND"),
             ("OT_START_TIME", "22:00", "OT chỉ được tính từ 22:00"),
             ("SHIFT_1_START", "09:00", "Giờ bắt đầu ca 1"),

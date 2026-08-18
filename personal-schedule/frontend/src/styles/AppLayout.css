@@ -34,7 +34,7 @@
 html, body {
   margin: 0;
   padding: 0;
-  height: 100%;
+  min-height: 100%;
 }
 
 body {
@@ -46,7 +46,8 @@ body {
 }
 
 #root {
-  height: 100%;
+  /* Không cố định height để layout tự cao theo nội dung (tránh nền đen khi cuộn) */
+  min-height: 100vh;
 }
 
 .app-layout {
