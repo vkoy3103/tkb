@@ -46,3 +46,5 @@ nul
 
 # Leftover duplicate file (real code lives in frontend/src/pages/WorkShiftEditor.tsx)
 /WorkShiftEditor.tsx
+
+.env

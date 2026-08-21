@@ -17,11 +17,12 @@
 
 | Thành phần | Công nghệ |
 |---|---|
-| Backend | Python + FastAPI + SQLAlchemy 2 + SQLite |
+| Backend | Python + FastAPI + SQLAlchemy 2 + SQLite (mặc định) / PostgreSQL (tùy chọn qua env `DATABASE_URL`) |
 | Frontend | React 19 + TypeScript + Vite + Tailwind CSS |
 | HTTP Client | Axios |
 | Router | React Router v6 |
 | Linter | Oxlint |
+| Database (optional) | Docker Compose: `postgres:17` + `pgAdmin4` |
 
 ---
 
@@ -71,16 +72,17 @@ personal-schedule/
 ### 3.1 Công nghệ & khởi động
 
 - **FastAPI** (`app/main.py`): title "Personal Schedule Manager", version `1.0.0`, CORS cho phép `http://localhost:5173` và `http://127.0.0.1:5173`.
-- **SQLite** được tạo tại `backend/data/schedule.db` (engine dùng `check_same_thread=False`).
+- **Database mặc định là SQLite** tại `backend/data/schedule.db` (engine dùng `check_same_thread=False`).
+- **Hỗ trợ PostgreSQL** qua biến môi trường `DATABASE_URL` — xem mục 8. Khi không đặt env, app tự dùng SQLite (không cần cấu hình gì). Driver cần: `psycopg2-binary`.
 - Trên startup: tự tạo bảng (`Base.metadata.create_all`) và gọi `ensure_default_settings()` để chèn các setting mặc định nếu chưa có.
 - Endpoint gốc: `GET /` và `GET /health`.
 
-**Cách chạy:**
+**Cách chạy (SQLite — mặc định):**
 
 ```bash
 # Terminal 1 — Backend
 cd backend
-source .venv/Scripts/activate      # Windows (Git Bash)
+source .venv/Scripts/activate
 uvicorn app.main:app --reload
 # hoặc: python run.py
 
@@ -279,4 +281,96 @@ cd frontend
 npm run dev                           # chạy dev server
 npm run build                         # build production
 npm run lint                          # oxlint
+
+# ⚡ Chạy nhanh với PostgreSQL (từ thư mục gốc)
+bash start_postgres.sh                # bật Docker + chạy backend trên Postgres
+bash start_postgres.sh --seed         # thêm: seed lại dữ liệu
+bash start_postgres.sh --pg           # chỉ bật Postgres + pgAdmin
 ```
+
+---
+
+## 8. Chạy với PostgreSQL (Docker) + pgAdmin
+
+### 8.1 Tổng quan
+
+Backend mặc định dùng SQLite. Muốn chạy với **PostgreSQL**, chỉ cần đặt biến môi trường `DATABASE_URL` trước lệnh chạy; `database.py` tự nhận biết (thêm `psycopg2-binary==2.9.10` vào `requirements.txt`). Container Postgres + pgAdmin được khai báo trong `docker-compose.yml` ở thư mục gốc.
+
+### 8.2 `docker-compose.yml`
+
+```yaml
+services:
+  db:
+    image: postgres:17
+    container_name: myproject-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: myproject
+    ports:
+      - "5433:5432"   # 5433 vì máy có PostgreSQL Windows service chiếm 5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: myproject-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
+```
+
+> ⚠️ **Port 5433 (không phải 5432)**: máy đang chạy PostgreSQL Windows service chiếm `5432`. Container map `5433:5432` — app bên ngoài Docker dùng `127.0.0.1:5433`, còn bên trong Docker (pgAdmin) dùng `db:5432`.
+
+### 8.3 Cách chạy app trên PostgreSQL
+
+```bash
+# 1. Khởi động container Postgres (chỉ lần đầu / khi chưa chạy)
+docker compose up -d db
+
+# 2. Chạy backend trên Postgres
+cd backend
+source .venv/Scripts/activate
+DATABASE_URL=postgresql://postgres:123456@127.0.0.1:5433/myproject uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+# (tùy chọn) seed lại dữ liệu lên Postgres
+DATABASE_URL=postgresql://postgres:123456@127.0.0.1:5433/myproject python -m data.seed
+```
+
+> 💾 **Đưa toàn bộ dữ liệu SQLite cũ sang Postgres**: script `backend/data/migrate_sqlite_to_postgres.py` đọc hết dữ liệu từ `backend/data/schedule.db` rồi chèn sang Postgres (giữ nguyên ID quan hệ, reset sequence, xóa sạch Postgres trước khi chèn). Chạy:
+> ```bash
+> cd backend && source .venv/Scripts/activate
+> DATABASE_URL=postgresql://postgres:123456@127.0.0.1:5433/myproject python -m data.migrate_sqlite_to_postgres
+> ```
+
+### 8.4 Xem database qua pgAdmin
+
+```bash
+docker compose up -d pgadmin
+```
+
+- **URL**: http://127.0.0.1:5050
+- **Login**: email `admin@example.com` / mật khẩu `admin`
+- **Đăng ký server** (đã đăng ký tên `myproject-local`):
+  - Host: `db` (tên service Docker — không phải `localhost`)
+  - Port: `5432` (nội bộ Docker)
+  - Maintenance DB: `myproject`
+  - Username: `postgres` / Password: `123456`
+
+Đường dẫn xem dữ liệu: **Object Explorer → Servers → myproject-local → Databases → myproject → Schemas → public → Tables** → chọn bảng → **All Rows** (hoặc chuột phải → View/Edit Data).
+
+### 8.5 Lưu ý khi dùng Postgres Docker
+
+1. **Mật khẩu cũ của volume**: `POSTGRES_PASSWORD` chỉ áp dụng **lần đầu tạo volume**. Nếu volume `postgres_data` đã tồn tại với mật khẩu khác, kết nối từ host sẽ báo `password authentication failed` (bên trong container localhost dùng `trust` nên psql vẫn "thành công" — dễ gây nhầm). Cách sửa:
+   ```bash
+   docker exec myproject-db psql -U postgres -d myproject -c "ALTER USER postgres WITH PASSWORD '123456';"
+   ```
+2. **Xem nhanh qua CLI**: `docker compose exec -e PGPASSWORD=123456 db psql -U postgres -d myproject -c "\\dt"` (thêm `-t -A -c "..." < /dev/null` để tránh màn hình interactive).
+3. **Backup/Restore**: endpoint `/api/backups/*` chỉ hỗ trợ SQLite (trả `501` khi đang dùng Postgres) — với Postgres dùng `pg_dump`/`pg_restore`.

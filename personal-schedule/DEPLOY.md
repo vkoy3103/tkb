@@ -16,6 +16,34 @@ backend/wsgi.py → entrypoint WSGI cho PythonAnywhere (dùng a2wsgi)
 
 ---
 
+## 🚀 Chạy hằng ngày với PostgreSQL (local)
+
+Dự án có hỗ trợ chạy local với **PostgreSQL qua Docker** (xem `docker-compose.yml` + mục 8 của `PROJECT_OVERVIEW.md`). Có script khởi động nhanh ở thư mục gốc:
+
+```bash
+# Chạy backend trên Postgres (tự bật Docker + mở app tại http://127.0.0.1:8000)
+bash start_postgres.sh
+
+# Tùy chọn khác
+bash start_postgres.sh --seed   # chạy + seed lại dữ liệu lên Postgres
+bash start_postgres.sh --pg     # chỉ bật Postgres + pgAdmin (không chạy backend)
+```
+
+Làm thủ công từng bước:
+```bash
+# 1) Bật Postgres + pgAdmin
+docker compose up -d db pgadmin
+
+# 2) Chạy backend trên Postgres
+cd backend
+source .venv/Scripts/activate
+DATABASE_URL=postgresql://postgres:123456@127.0.0.1:5433/myproject uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+> 💡 Chạy với **SQLite** (mặc định, không cần Docker): chỉ cần `cd backend && uvicorn app.main:app --reload` — bỏ qua bước 1 và 2 ở trên.
+
+---
+
 ## 🏆 Lựa chọn 1: PythonAnywhere (khuyên dùng — miễn phí vĩnh viễn, SQLite bền)
 
 **Ưu điểm**: Free tier dữ liệu **lưu vĩnh viễn** (phù hợp SQLite), không cần thẻ tín dụng, HTTPS sẵn có, URL dạng `https://tenban.pythonanywhere.com`.

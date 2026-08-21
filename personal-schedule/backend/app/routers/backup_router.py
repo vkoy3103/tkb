@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app.database import DATA_DIR, SessionLocal, SQLITE_PATH
+from app.database import DATA_DIR, IS_SQLITE, SessionLocal, SQLITE_PATH
 
 router = APIRouter(prefix="/backups", tags=["backups"])
 
@@ -15,6 +15,11 @@ def get_db():
 @router.get("/export")
 def export_database():
     """Export the current SQLite database file for backup/download."""
+    if not IS_SQLITE:
+        raise HTTPException(
+            status_code=501,
+            detail="Backup file export chỉ hỗ trợ SQLite. PostgreSQL dùng pg_dump để backup.",
+        )
     if not SQLITE_PATH.exists():
         raise HTTPException(status_code=404, detail="Database file not found")
     return FileResponse(path=SQLITE_PATH, filename="schedule.db", media_type="application/x-sqlite3")
@@ -23,6 +28,11 @@ def export_database():
 @router.post("/restore")
 def restore_database(file: UploadFile = File(...)):
     """Restore the database from an uploaded .db or .sqlite file."""
+    if not IS_SQLITE:
+        raise HTTPException(
+            status_code=501,
+            detail="Restore file chỉ hỗ trợ SQLite. PostgreSQL dùng pg_restore để khôi phục.",
+        )
     if not file.filename.endswith(".db") and not file.filename.endswith(".sqlite"):
         raise HTTPException(status_code=400, detail="Invalid database file")
     file_path = DATA_DIR / "schedule_restore.db"

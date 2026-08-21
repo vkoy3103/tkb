@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:17
+    container_name: myproject-db
+
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: myproject
+
+    ports:
+      # Lưu ý: nếu máy đang có PostgreSQL service chiếm 5432 thì dùng 5433 để tránh xung đột
+      - "5433:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: myproject-pgadmin
+
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+
+    ports:
+      - "5050:80"
+
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
