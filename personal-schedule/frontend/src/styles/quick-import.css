@@ -1,0 +1,250 @@
+/* ===== QuickImportScheduler: dán nhanh môn học + lịch học ===== */
+
+.schedule-modal.quick-import {
+  max-width: 1240px;
+  width: 96vw;
+}
+
+.quick-import__hint {
+  font-size: 12px;
+  color: #64748b;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.quick-import__hint code {
+  background: #eef2ff;
+  color: #4f46e5;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 11px;
+}
+
+.quick-import__copy-btn {
+  background: #4f46e5;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+.quick-import__copy-btn:hover {
+  background: #4338ca;
+}
+
+.quick-import__format {
+  font-size: 12px;
+  color: #334155;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
+
+.quick-import__format code {
+  background: #e0f2fe;
+  color: #0369a1;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 11px;
+}
+
+.quick-import__format-example {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #475569;
+}
+
+.quick-import__textarea {
+  width: 100%;
+  min-height: 140px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #1e293b;
+  resize: vertical;
+  background: #fff;
+}
+
+.quick-import__textarea:focus {
+  outline: none;
+  border-color: #818cf8;
+  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2);
+}
+
+.quick-import__toolbar {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0;
+  flex-wrap: wrap;
+}
+
+.quick-import__success {
+  background: #ecfdf5;
+  border: 1px solid #6ee7b7;
+  color: #047857;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.quick-import__preview {
+  margin-top: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow-x: auto;
+}
+
+.quick-import__preview-title {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.quick-import__table {
+  width: 100%;
+  min-width: 1100px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 13px;
+}
+
+.quick-import__table th,
+.quick-import__table td {
+  border: 1px solid #e2e8f0;
+  padding: 4px 6px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.quick-import__table th {
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.quick-import__cell {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 13px;
+  background: transparent;
+  color: #1e293b;
+  box-sizing: border-box;
+}
+
+.quick-import__cell:hover {
+  border-color: #cbd5e1;
+  background: #fff;
+}
+
+.quick-import__cell:focus {
+  outline: none;
+  border-color: #818cf8;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.2);
+}
+
+.quick-import__cell--num {
+  text-align: center;
+  min-width: 46px;
+}
+
+.quick-import__cell--time {
+  min-width: 84px;
+}
+
+.quick-import__cell--code {
+  min-width: 110px;
+}
+
+.quick-import__periods {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.quick-import__periods span {
+  color: #94a3b8;
+}
+
+.quick-import__remove {
+  border: none;
+  background: transparent;
+  color: #ef4444;
+  font-size: 15px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.quick-import__remove:hover {
+  background: #fef2f2;
+}
+
+/* Cột tên môn */
+.quick-import__table th:nth-child(1),
+.quick-import__table td:nth-child(1) {
+  width: 18%;
+}
+
+.quick-import__table th:nth-child(2),
+.quick-import__table td:nth-child(2) {
+  width: 14%;
+}
+
+.quick-import__table th:nth-child(3),
+.quick-import__table td:nth-child(3) {
+  width: 4%;
+}
+
+.quick-import__table th:nth-child(4),
+.quick-import__table td:nth-child(4) {
+  width: 19%;
+}
+
+.quick-import__table th:nth-child(5),
+.quick-import__table td:nth-child(5) {
+  width: 8%;
+}
+
+.quick-import__table th:nth-child(6),
+.quick-import__table td:nth-child(6) {
+  width: 12%;
+}
+
+.quick-import__table th:nth-child(7),
+.quick-import__table td:nth-child(7) {
+  width: 11%;
+}
+
+.quick-import__table th:nth-child(8),
+.quick-import__table td:nth-child(8) {
+  width: 12%;
+}
+
+.quick-import__table th:nth-child(9),
+.quick-import__table td:nth-child(9) {
+  width: 2%;
+}

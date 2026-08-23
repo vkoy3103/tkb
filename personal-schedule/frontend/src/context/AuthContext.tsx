@@ -1,11 +1,12 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { authApi, type UserInfo } from '../services/authApi'
+import { authApi, type ScheduleMode, type UserInfo } from '../services/authApi'
 import { getToken, setToken } from '../services/api'
 
 interface AuthContextValue {
   user: UserInfo | null
   isAuthenticated: boolean
   isLoading: boolean
+  scheduleMode: ScheduleMode
   login: (email: string, password: string) => Promise<void>
   register: (payload: {
     email: string
@@ -13,7 +14,9 @@ interface AuthContextValue {
     first_name?: string
     last_name?: string
     phone_number?: string
+    schedule_mode?: ScheduleMode
   }) => Promise<void>
+  updateScheduleMode: (mode: ScheduleMode) => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -43,13 +46,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const register = useCallback(
-    async (payload: { email: string; password: string; first_name?: string; last_name?: string; phone_number?: string }) => {
+    async (payload: {
+      email: string
+      password: string
+      first_name?: string
+      last_name?: string
+      phone_number?: string
+      schedule_mode?: ScheduleMode
+    }) => {
       await authApi.register(payload)
       // Đăng ký xong → tự đăng nhập luôn
       await login(payload.email, payload.password)
     },
     [login],
   )
+
+  const updateScheduleMode = useCallback(async (mode: ScheduleMode) => {
+    const updated = await authApi.updateScheduleMode(mode)
+    setUser((cur) => (cur ? { ...cur, schedule_mode: updated.schedule_mode } : cur))
+  }, [])
 
   const logout = useCallback(async () => {
     try {
@@ -61,16 +76,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null)
   }, [])
 
+  const scheduleMode: ScheduleMode = user?.schedule_mode ?? 'PERIOD'
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       isAuthenticated: !!user,
       isLoading,
+      scheduleMode,
       login,
       register,
+      updateScheduleMode,
       logout,
     }),
-    [user, isLoading, login, register, logout],
+    [user, isLoading, scheduleMode, login, register, updateScheduleMode, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

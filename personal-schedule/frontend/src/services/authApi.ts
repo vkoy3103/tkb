@@ -1,5 +1,7 @@
 import api from './api'
 
+export type ScheduleMode = 'PERIOD' | 'TIME'
+
 export interface UserInfo {
   id: number
   email: string
@@ -8,6 +10,7 @@ export interface UserInfo {
   phone_number?: string | null
   picture?: string | null
   role: string
+  schedule_mode?: ScheduleMode
   credit_balance: number
 }
 
@@ -34,8 +37,14 @@ export const authApi = {
     first_name?: string
     last_name?: string
     phone_number?: string
+    schedule_mode?: ScheduleMode
   }): Promise<{ message: string; id: number; email: string }> {
     const { data } = await api.post('/auth/register', payload)
+    return data
+  },
+
+  async updateScheduleMode(schedule_mode: ScheduleMode): Promise<UserInfo> {
+    const { data } = await api.put<UserInfo>('/auth/schedule-mode', { schedule_mode })
     return data
   },
 

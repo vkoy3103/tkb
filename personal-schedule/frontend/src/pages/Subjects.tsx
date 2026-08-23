@@ -9,6 +9,7 @@ import {
   updateScheduleOverride,
 } from '../services/scheduleOverrideApi'
 import type { Period, Schedule, ScheduleOverride, Subject } from '../types'
+import { QuickImportScheduler } from '../components/QuickImportScheduler'
 import '../styles/pages.css'
 
 const defaultSubject = {
@@ -56,6 +57,7 @@ export default function Subjects() {
   const [makeupEditingId, setMakeupEditingId] = useState<number | null>(null)
   const [overrideError, setOverrideError] = useState('')
   const [overrideLoading, setOverrideLoading] = useState(true)
+  const [isQuickImportOpen, setIsQuickImportOpen] = useState(false)
 
   const loadData = async () => {
     try {
@@ -265,6 +267,11 @@ export default function Subjects() {
             <h2 className="pg-header__title">Subjects</h2>
             <p className="pg-header__subtitle">Quản lý môn học của bạn.</p>
           </div>
+        </div>
+        <div className="pg-header__actions">
+          <button type="button" className="pg-btn pg-btn--primary" onClick={() => setIsQuickImportOpen(true)}>
+            ⚡ Dán nhanh từ bảng
+          </button>
         </div>
       </header>
 
@@ -648,6 +655,12 @@ export default function Subjects() {
           </div>
         )}
       </section>
+
+      <QuickImportScheduler
+        isOpen={isQuickImportOpen}
+        onClose={() => setIsQuickImportOpen(false)}
+        onDone={loadData}
+      />
     </div>
   )
 }

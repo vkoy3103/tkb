@@ -116,16 +116,19 @@ export default function Dashboard() {
 
     return [...schedules]
       .map((schedule) => {
-        const startPeriod = getPeriodByNumber(schedule.start_period)
+        const startPeriod = getPeriodByNumber(schedule.start_period ?? -1)
         const target = new Date(selected)
         const daysAhead = getDayOffsetForSchedule(schedule.weekday, selected)
         target.setDate(selected.getDate() + daysAhead)
 
-        if (startPeriod?.start_time) {
+        if (schedule.start_time && schedule.end_time) {
+          const [hours, minutes] = schedule.start_time.split(':').map(Number)
+          target.setHours(hours, minutes, 0, 0)
+        } else if (startPeriod?.start_time) {
           const [hours, minutes] = startPeriod.start_time.split(':').map(Number)
           target.setHours(hours, minutes, 0, 0)
         } else {
-          target.setHours(7 + (schedule.start_period - 1), 0, 0, 0)
+          target.setHours(7 + ((schedule.start_period ?? 1) - 1), 0, 0, 0)
         }
 
         return { schedule, target }
@@ -373,11 +376,14 @@ export default function Dashboard() {
               upcomingSchedules.map(({ schedule, target }) => {
                 const subject = subjects.find((item) => item.id === schedule.subject_id)
                 const label = subject?.name ?? schedule.note ?? 'Lịch học'
-                const periodStart = getPeriodByNumber(schedule.start_period)
-                const periodEnd = getPeriodByNumber(schedule.end_period)
-                const timeRange = periodStart && periodEnd
-                  ? `${formatClock(periodStart.start_time)} - ${formatClock(periodEnd.end_time)}`
-                  : `${schedule.start_period} - ${schedule.end_period}`
+                const periodStart = getPeriodByNumber(schedule.start_period ?? -1)
+                const periodEnd = getPeriodByNumber(schedule.end_period ?? -1)
+                const timeRange =
+                  schedule.start_time && schedule.end_time
+                    ? `${formatClock(schedule.start_time)} - ${formatClock(schedule.end_time)}`
+                    : periodStart && periodEnd
+                      ? `${formatClock(periodStart.start_time)} - ${formatClock(periodEnd.end_time)}`
+                      : `${schedule.start_period} - ${schedule.end_period}`
 
                 return (
                   <div key={schedule.id} className="dashboard-item dashboard-item--study">

@@ -129,10 +129,10 @@ Mọi router đều gắn prefix `/api`. Pattern chuẩn CRUD: `GET list`, `POST
 
 | Router | Prefix | Endpoints đặc biệt |
 |---|---|---|
-| `auth_router.py` | `/auth` | `POST /login`, `GET /me`, `POST /logout`, `POST /register` (JWT Bearer) |
+| `auth_router.py` | `/auth` | `POST /login`, `GET /me`, `PUT /schedule-mode`, `POST /logout`, `POST /register` (JWT Bearer; register nhận `schedule_mode`) |
 | `subject_router.py` | `/subjects` | CRUD môn học |
-| `period_router.py` | `/periods` | Chỉ `GET` danh sách tiết |
-| `schedule_router.py` | `/schedules` | CRUD lịch học |
+| `period_router.py` | `/periods` | CRUD khung tiết học (thêm/sửa/xóa tiết + khung giờ) |
+| `schedule_router.py` | `/schedules` | CRUD lịch học — lưu theo **tiết** (start/end_period) hoặc **giờ** (start/end_time) |
 | `schedule_override_router.py` | `/schedule-overrides` | CRUD thay đổi lịch |
 | `work_shift_router.py` | `/work-shifts` | CRUD ca làm |
 | `work_extra_router.py` | `/work-extras` | CRUD phụ thu (tự tính amount) |
@@ -275,6 +275,8 @@ Ví dụ cụ thể — xem Dashboard:
 5. **Backup/Restore** — backend đã có đủ API, nhưng UI ở `Settings.tsx` mới chỉ hiển thị mô tả, chưa có nút gọi API. (Lưu ý: `/api/backups/*` chỉ hỗ trợ SQLite — Postgres dùng `pg_dump`.)
 6. **`statistics_service`** dùng `current.weekday() + 2 == schedule.weekday` để map ngày (quy ước: 2 = Thứ 2 ... 8 = Chủ nhật) — lưu ý khi sửa dữ liệu.
 7. **Auth (đã hoàn thiện)**: login/register/logout, JWT Bearer, mọi API yêu cầu token, mỗi user dữ liệu riêng (multi-tenant qua cột `user_id`). Tài khoản admin mặc định `admin@example.com` / `admin123` (tự tạo khi startup).
+8. **Chế độ thời khóa biểu theo user** (`users.schedule_mode`): mỗi user chọn **PERIOD** (theo tiết — cấu hình khung tiết ở Settings) hoặc **TIME** (theo giờ trực tiếp — không cần tiết). Hỏi khi đăng ký, đổi được sau khi đăng nhập ở Settings. Lịch học (`class_schedules`) lưu theo tiết **hoặc** giờ; timetable + dashboard + thống kê render được cả 2 dạng.
+9. **Dán nhanh từ bảng** (`QuickImportScheduler` ở trang Subjects): dán danh sách môn + lịch → parser nhận diện → bảng xem trước sửa từng ô → tạo Subject + Schedule hàng loạt. Hướng dẫn format theo đúng chế độ của user (tiết hoặc giờ), kèm nút copy prompt ChatGPT. Nhận diện được cả dữ liệu dán thẳng từ portal (có thứ + giờ/tiết). Style trong `styles/quick-import.css`.
 8. **`seed.py`** dùng cho SQLite fallback; khi chạy Postgres nên dùng `python -m data.migrate_sqlite_to_postgres` hoặc đăng ký tài khoản mới (mỗi user được seed settings + work_extra_types mặc định tự động).
 
 ---

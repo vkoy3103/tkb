@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
-from app.schemas.auth import RegisterRequest, UserOut
+from app.schemas.auth import RegisterRequest, ScheduleModeUpdate, UserOut
 from app.services.auth_service import get_current_user
 from app.services.settings_service import ensure_user_settings
 from app.services.work_extra_type_service import ensure_user_work_extra_types
@@ -53,6 +53,19 @@ def me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
+@auth.put("/schedule-mode", response_model=UserOut)
+def update_schedule_mode(
+    payload: ScheduleModeUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Cập nhật chế độ thời khóa biểu: PERIOD (theo tiết) hoặc TIME (theo giờ)."""
+    current_user.schedule_mode = payload.schedule_mode
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
 @auth.post("/logout")
 def logout(current_user: User = Depends(get_current_user)):
     # JWT stateless — client tự xóa token. Endpoint chỉ để đồng bộ cho frontend.
@@ -72,6 +85,7 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
         phone_number=request.phone_number,
         password_hash=hash_password(request.password),
         role="user",
+        schedule_mode=request.schedule_mode,
         credit_balance=0,
         is_active=True,
     )

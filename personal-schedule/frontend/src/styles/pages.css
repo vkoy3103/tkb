@@ -72,6 +72,43 @@
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
 }
 
+/* ---------- Chế độ thời khóa biểu ---------- */
+.schedule-mode-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  padding: 1rem 1.1rem;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 1rem;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition: border 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.schedule-mode-card:hover {
+  border-color: #c4b5fd;
+}
+
+.schedule-mode-card--active {
+  border-color: #8b5cf6;
+  background: #f5f3ff;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+}
+
+.schedule-mode-card__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e1b4b;
+}
+
+.schedule-mode-card__desc {
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
 .pg-card__title {
   margin: 0;
   font-size: 1.1rem;

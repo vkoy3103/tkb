@@ -12,8 +12,10 @@ export type TimetableSchedule = {
   id: number | string
   subject_id: number
   weekday: number
-  start_period: number
-  end_period: number
+  start_period: number | null
+  end_period: number | null
+  start_time?: string | null
+  end_time?: string | null
   room?: string | null
   note?: string | null
   created_at?: string

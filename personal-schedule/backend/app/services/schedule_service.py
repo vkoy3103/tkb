@@ -10,7 +10,7 @@ def get_schedules(db: Session, user_id: int) -> list[Schedule]:
     return (
         db.query(Schedule)
         .filter(Schedule.user_id == user_id)
-        .order_by(Schedule.weekday, Schedule.start_period)
+        .order_by(Schedule.weekday, Schedule.start_period, Schedule.start_time)
         .all()
     )
 
@@ -23,18 +23,25 @@ def get_schedule(db: Session, user_id: int, schedule_id: int) -> Schedule | None
     )
 
 
-def validate_schedule_periods(start_period: int, end_period: int) -> None:
-    if start_period <= 0 or end_period <= 0:
-        raise HTTPException(status_code=400, detail="Period numbers must be positive.")
-    if start_period > end_period:
-        raise HTTPException(status_code=400, detail="start_period must be less than or equal to end_period")
+def _normalize_time_fields(data: dict) -> dict:
+    """Khi dùng chế độ giờ, đặt tiết = NULL và ngược lại, để tránh lưu thừa 1 chế độ."""
+    data = dict(data)
+    has_period = data.get("start_period") is not None or data.get("end_period") is not None
+    has_time = data.get("start_time") is not None or data.get("end_time") is not None
+    if has_time:
+        data["start_period"] = None
+        data["end_period"] = None
+    elif has_period:
+        data["start_time"] = None
+        data["end_time"] = None
+    return data
 
 
 def create_schedule(db: Session, user_id: int, payload: ScheduleCreate) -> Schedule:
-    validate_schedule_periods(payload.start_period, payload.end_period)
     if not db.query(Subject).filter(Subject.id == payload.subject_id, Subject.user_id == user_id).first():
         raise HTTPException(status_code=404, detail="Subject not found")
-    schedule = Schedule(user_id=user_id, **payload.model_dump())
+    data = _normalize_time_fields(payload.model_dump())
+    schedule = Schedule(user_id=user_id, **data)
     db.add(schedule)
     db.commit()
     db.refresh(schedule)
@@ -43,13 +50,10 @@ def create_schedule(db: Session, user_id: int, payload: ScheduleCreate) -> Sched
 
 def update_schedule(db: Session, schedule: Schedule, payload: ScheduleUpdate) -> Schedule:
     update_data = payload.model_dump(exclude_unset=True)
-    if "start_period" in update_data or "end_period" in update_data:
-        start_period = update_data.get("start_period", schedule.start_period)
-        end_period = update_data.get("end_period", schedule.end_period)
-        validate_schedule_periods(start_period, end_period)
     if "subject_id" in update_data and update_data["subject_id"] is not None:
         if not db.query(Subject).filter(Subject.id == update_data["subject_id"], Subject.user_id == schedule.user_id).first():
             raise HTTPException(status_code=404, detail="Subject not found")
+    update_data = _normalize_time_fields(update_data)
     for field, value in update_data.items():
         setattr(schedule, field, value)
     db.commit()

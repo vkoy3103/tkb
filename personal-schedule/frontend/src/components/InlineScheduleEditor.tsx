@@ -8,6 +8,7 @@ import {
   ContextMenu,
   ScheduleAlert,
 } from './ScheduleEditor'
+import { useAuth } from '../context/AuthContext'
 import type { Schedule, Subject, Period } from '../types'
 
 interface InlineScheduleEditorProps {
@@ -39,12 +40,16 @@ export function InlineScheduleEditor({
   contextMenu,
   onContextMenuClose,
 }: InlineScheduleEditorProps): React.ReactElement | null {
+  const { scheduleMode } = useAuth()
+  const isTimeMode = scheduleMode === 'TIME'
   const [formData, setFormData] = useState<Partial<Schedule>>(
     schedule || {
       subject_id: 0,
       weekday: 2,
       start_period: 1,
       end_period: 2,
+      start_time: '07:00',
+      end_time: '09:00',
       room: '',
       note: '',
     }
@@ -61,6 +66,8 @@ export function InlineScheduleEditor({
       weekday: 2,
       start_period: 1,
       end_period: 2,
+      start_time: '07:00',
+      end_time: '09:00',
       room: '',
       note: '',
     })
@@ -70,7 +77,7 @@ export function InlineScheduleEditor({
   useEffect(() => {
     if (isOpen) {
       if (schedule) {
-      setFormData(schedule)
+        setFormData(schedule)
       } else resetForm()
     }
   }, [schedule, isOpen, resetForm])
@@ -79,14 +86,22 @@ export function InlineScheduleEditor({
     const newErrors: Record<string, string> = {}
     if (!formData.subject_id) newErrors.subject_id = 'Vui lòng chọn môn học'
     if (!formData.weekday) newErrors.weekday = 'Vui lòng chọn thứ'
-    if (!formData.start_period) newErrors.start_period = 'Vui lòng chọn tiết bắt đầu'
-    if (!formData.end_period) newErrors.end_period = 'Vui lòng chọn tiết kết thúc'
-    if (
-      formData.start_period &&
-      formData.end_period &&
-      (formData.start_period as number) > (formData.end_period as number)
-    ) {
-      newErrors.end_period = 'Tiết kết thúc phải sau tiết bắt đầu'
+    if (isTimeMode) {
+      if (!formData.start_time || !formData.end_time) {
+        newErrors.start_time = 'Cần đủ giờ bắt đầu và kết thúc'
+      } else if (formData.end_time <= formData.start_time) {
+        newErrors.end_time = 'Giờ kết thúc phải sau giờ bắt đầu'
+      }
+    } else {
+      if (!formData.start_period) newErrors.start_period = 'Vui lòng chọn tiết bắt đầu'
+      if (!formData.end_period) newErrors.end_period = 'Vui lòng chọn tiết kết thúc'
+      if (
+        formData.start_period &&
+        formData.end_period &&
+        (formData.start_period as number) > (formData.end_period as number)
+      ) {
+        newErrors.end_period = 'Tiết kết thúc phải sau tiết bắt đầu'
+      }
     }
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -96,8 +111,16 @@ export function InlineScheduleEditor({
     e.preventDefault()
     if (!validateForm()) return
 
+    const payload = {
+      ...formData,
+      start_period: isTimeMode ? null : formData.start_period != null ? Number(formData.start_period) : null,
+      end_period: isTimeMode ? null : formData.end_period != null ? Number(formData.end_period) : null,
+      start_time: isTimeMode ? formData.start_time : null,
+      end_time: isTimeMode ? formData.end_time : null,
+    }
+
     try {
-      await onSave(formData)
+      await onSave(payload)
       setToast({ message: 'Lưu thành công!', type: 'success' })
       setTimeout(() => {
         onClose()
@@ -138,7 +161,11 @@ export function InlineScheduleEditor({
         {formData.subject_id && (
           <ScheduleAlert
             type="info"
-            message={`${subjectName} - ${weekdayNames[(formData.weekday as number) - 2]}, Tiết ${formData.start_period}-${formData.end_period}`}
+            message={`${subjectName} - ${weekdayNames[(formData.weekday as number) - 2]}, ${
+              isTimeMode
+                ? `${formData.start_time} - ${formData.end_time}`
+                : `Tiết ${formData.start_period}-${formData.end_period}`
+            }`}
           />
         )}
 
@@ -181,41 +208,69 @@ export function InlineScheduleEditor({
         </FormRow>
 
         <FormRow>
-          <FormGroup label="Tiết bắt đầu" required error={errors.start_period}>
-            <select
-              className="form-group__select"
-              value={formData.start_period || ''}
-              onChange={(e) => {
-                setFormData({ ...formData, start_period: parseInt(e.target.value) })
-                setErrors({ ...errors, start_period: '' })
-              }}
-            >
-              <option value="">-- Chọn tiết --</option>
-              {periods.map((p) => (
-                <option key={p.period_number} value={p.period_number}>
-                  Tiết {p.period_number}
-                </option>
-              ))}
-            </select>
-          </FormGroup>
-
-          <FormGroup label="Tiết kết thúc" required error={errors.end_period}>
-            <select
-              className="form-group__select"
-              value={formData.end_period || ''}
-              onChange={(e) => {
-                setFormData({ ...formData, end_period: parseInt(e.target.value) })
-                setErrors({ ...errors, end_period: '' })
-              }}
-            >
-              <option value="">-- Chọn tiết --</option>
-              {periods.map((p) => (
-                <option key={p.period_number} value={p.period_number}>
-                  Tiết {p.period_number}
-                </option>
-              ))}
-            </select>
-          </FormGroup>
+          {isTimeMode ? (
+            <>
+              <FormGroup label="Giờ bắt đầu" required error={errors.start_time}>
+                <input
+                  type="time"
+                  className="form-group__input"
+                  value={formData.start_time || ''}
+                  onChange={(e) => {
+                    setFormData({ ...formData, start_time: e.target.value })
+                    setErrors({ ...errors, start_time: '' })
+                  }}
+                />
+              </FormGroup>
+              <FormGroup label="Giờ kết thúc" required error={errors.end_time}>
+                <input
+                  type="time"
+                  className="form-group__input"
+                  value={formData.end_time || ''}
+                  onChange={(e) => {
+                    setFormData({ ...formData, end_time: e.target.value })
+                    setErrors({ ...errors, end_time: '' })
+                  }}
+                />
+              </FormGroup>
+            </>
+          ) : (
+            <>
+              <FormGroup label="Tiết bắt đầu" required error={errors.start_period}>
+                <select
+                  className="form-group__select"
+                  value={formData.start_period || ''}
+                  onChange={(e) => {
+                    setFormData({ ...formData, start_period: parseInt(e.target.value) })
+                    setErrors({ ...errors, start_period: '' })
+                  }}
+                >
+                  <option value="">-- Chọn tiết --</option>
+                  {periods.map((p) => (
+                    <option key={p.period_number} value={p.period_number}>
+                      Tiết {p.period_number}
+                    </option>
+                  ))}
+                </select>
+              </FormGroup>
+              <FormGroup label="Tiết kết thúc" required error={errors.end_period}>
+                <select
+                  className="form-group__select"
+                  value={formData.end_period || ''}
+                  onChange={(e) => {
+                    setFormData({ ...formData, end_period: parseInt(e.target.value) })
+                    setErrors({ ...errors, end_period: '' })
+                  }}
+                >
+                  <option value="">-- Chọn tiết --</option>
+                  {periods.map((p) => (
+                    <option key={p.period_number} value={p.period_number}>
+                      Tiết {p.period_number}
+                    </option>
+                  ))}
+                </select>
+              </FormGroup>
+            </>
+          )}
         </FormRow>
 
         <FormInput

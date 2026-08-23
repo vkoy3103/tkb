@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, Time
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -19,8 +19,12 @@ class Schedule(Base):
     )
 
     weekday = Column(Integer, nullable=False)
-    start_period = Column(Integer, nullable=False)
-    end_period = Column(Integer, nullable=False)
+    # Có 2 chế độ lưu thời gian: theo TIẾT (start_period/end_period) hoặc theo GIỜ (start_time/end_time).
+    # Một lịch chỉ dùng 1 chế độ; chế độ kia để NULL.
+    start_period = Column(Integer, nullable=True)
+    end_period = Column(Integer, nullable=True)
+    start_time = Column(Time, nullable=True)
+    end_time = Column(Time, nullable=True)
 
     room = Column(String(80), nullable=True)
 

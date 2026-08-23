@@ -23,12 +23,16 @@ export interface Period {
   note?: string | null
 }
 
+export type ScheduleMode = 'PERIOD' | 'TIME'
+
 export interface Schedule {
   id: number
   subject_id: number
   weekday: number
-  start_period: number
-  end_period: number
+  start_period: number | null
+  end_period: number | null
+  start_time?: string | null
+  end_time?: string | null
   room?: string | null
   week_start?: number | null
   week_end?: number | null

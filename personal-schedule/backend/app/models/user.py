@@ -16,6 +16,8 @@ class User(Base):
     picture = Column(String(255), nullable=True)
     # "admin" hoặc "user"
     role = Column(String(20), nullable=False, default="user")
+    # Chế độ dùng thời khóa biểu: "PERIOD" (theo tiết, cấu hình ở Settings) hoặc "TIME" (theo giờ trực tiếp)
+    schedule_mode = Column(String(20), nullable=False, default="PERIOD")
     credit_balance = Column(Float, nullable=False, default=0.0)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

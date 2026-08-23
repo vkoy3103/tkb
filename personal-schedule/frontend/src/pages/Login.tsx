@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import type { ScheduleMode } from '../services/authApi'
 import '../styles/auth.css'
 
 export default function Login() {
@@ -13,6 +14,7 @@ export default function Login() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [phone, setPhone] = useState('')
+  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('PERIOD')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -34,7 +36,7 @@ export default function Login() {
           setLoading(false)
           return
         }
-        await register({ email, password, first_name: firstName, last_name: lastName, phone_number: phone })
+        await register({ email, password, first_name: firstName, last_name: lastName, phone_number: phone, schedule_mode: scheduleMode })
       }
       navigate('/dashboard', { replace: true })
     } catch (err) {
@@ -85,6 +87,27 @@ export default function Login() {
                 <span>Số điện thoại (tùy chọn)</span>
                 <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0123456789" />
               </label>
+              <div className="auth-field">
+                <span>Chế độ thời khóa biểu</span>
+                <div className="auth-mode-options">
+                  <button
+                    type="button"
+                    className={`auth-mode-option ${scheduleMode === 'PERIOD' ? 'auth-mode-option--active' : ''}`}
+                    onClick={() => setScheduleMode('PERIOD')}
+                  >
+                    🕐 Theo tiết
+                    <small>Dùng số tiết, cấu hình khung giờ ở Settings</small>
+                  </button>
+                  <button
+                    type="button"
+                    className={`auth-mode-option ${scheduleMode === 'TIME' ? 'auth-mode-option--active' : ''}`}
+                    onClick={() => setScheduleMode('TIME')}
+                  >
+                    ⏱️ Theo giờ
+                    <small>Nhập giờ trực tiếp (vd 07:00-09:00), không cần tiết</small>
+                  </button>
+                </div>
+              </div>
             </>
           )}
 

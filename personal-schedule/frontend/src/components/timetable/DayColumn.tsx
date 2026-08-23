@@ -7,8 +7,10 @@ type TimetableSchedule = {
   id: number | string
   subject_id: number
   weekday: number
-  start_period: number
-  end_period: number
+  start_period: number | null
+  end_period: number | null
+  start_time?: string | null
+  end_time?: string | null
   room?: string | null
   note?: string | null
   created_at?: string
@@ -75,10 +77,15 @@ export function DayColumn({
           )
 
           const isWork = '_isWork' in schedule && Boolean(schedule._isWork)
+          // Chế độ GIỜ: lịch có start_time/end_time trực tiếp
+          const isTimeBased = Boolean(schedule.start_time && schedule.end_time)
 
           let startTime: string, endTime: string
 
-          if (isWork && schedule.note) {
+          if (isTimeBased) {
+            startTime = String(schedule.start_time).slice(0, 5)
+            endTime = String(schedule.end_time).slice(0, 5)
+          } else if (isWork && schedule.note) {
             ;[startTime, endTime] = schedule.note.split('-')
             startTime = startTime.slice(0, 5)
             endTime = endTime.slice(0, 5)
@@ -91,18 +98,18 @@ export function DayColumn({
             )
             startTime =
               startPeriod?.start_time.slice(0, 5) ??
-              `${schedule.start_period}:00`
+              `${schedule.start_period ?? 1}:00`
             endTime =
               endPeriod?.end_time.slice(0, 5) ??
-              `${schedule.end_period}:00`
+              `${schedule.end_period ?? 1}:00`
           }
 
           // Định vị ô trên grid tiết học
           let startIndex: number
           let endIndex: number
 
-          if (isWork) {
-            // Ca làm theo giờ -> dùng getTimeRow để định vị trên grid tiết học
+          if (isWork || isTimeBased) {
+            // Ca làm / lịch theo giờ -> dùng getTimeRow để định vị trên grid tiết học
             startIndex = getTimeRow(startTime) - 1
             endIndex = Math.max(getTimeRow(endTime) - 1, startIndex + 1)
           } else {

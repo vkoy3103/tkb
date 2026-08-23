@@ -77,6 +77,15 @@ def get_study_hours(db: Session, user_id: int, start_date: date, end_date: date)
         for schedule in schedules:
             if current.weekday() + 2 != schedule.weekday:
                 continue
+            # Chế độ GIỜ: dùng trực tiếp start_time/end_time
+            if schedule.start_time and schedule.end_time:
+                duration = (
+                    datetime.combine(current, schedule.end_time)
+                    - datetime.combine(current, schedule.start_time)
+                ).total_seconds() / 3600.0
+                total += max(0.0, duration)
+                continue
+            # Chế độ TIẾT: quy đổi qua bảng tiết
             start_period = periods.get(schedule.start_period)
             end_period = periods.get(schedule.end_period)
             if start_period is None or end_period is None:

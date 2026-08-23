@@ -6,6 +6,7 @@ import { InlineScheduleEditor } from '../components/InlineScheduleEditor'
 import { WeekShiftScheduler } from '../components/WeekShiftScheduler'
 import { ShiftMoneyEditor } from '../components/ShiftMoneyEditor'
 import type { WeekShiftDraft } from '../components/WeekShiftScheduler'
+import { useAuth } from '../context/AuthContext'
 import { fetchPeriods } from '../services/periodApi'
 import {
   createSchedule,
@@ -50,6 +51,8 @@ const emptyForm = {
   weekday: 2,
   start_period: 1,
   end_period: 2,
+  start_time: '07:00',
+  end_time: '09:00',
   room: '',
   week_start: 1,
   week_end: 16,
@@ -57,6 +60,7 @@ const emptyForm = {
 }
 
 export default function SchedulePage() {
+  const { scheduleMode } = useAuth()
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [periods, setPeriods] = useState<Period[]>([])
@@ -199,12 +203,15 @@ export default function SchedulePage() {
   }
 
   const handleSaveSchedule = async (data: Partial<Schedule>) => {
+    const isTime = Boolean(data.start_time && data.end_time)
     const payload = {
       ...data,
       subject_id: Number(data.subject_id),
       weekday: Number(data.weekday),
-      start_period: Number(data.start_period),
-      end_period: Number(data.end_period),
+      start_period: isTime ? null : data.start_period != null ? Number(data.start_period) : null,
+      end_period: isTime ? null : data.end_period != null ? Number(data.end_period) : null,
+      start_time: isTime ? data.start_time : null,
+      end_time: isTime ? data.end_time : null,
     }
 
     if (editingSchedule) {
@@ -390,8 +397,10 @@ export default function SchedulePage() {
     setForm({
       subject_id: String(schedule.subject_id),
       weekday: schedule.weekday,
-      start_period: schedule.start_period,
-      end_period: schedule.end_period,
+      start_period: schedule.start_period ?? 1,
+      end_period: schedule.end_period ?? 2,
+      start_time: (schedule.start_time ?? '07:00').slice(0, 5),
+      end_time: (schedule.end_time ?? '09:00').slice(0, 5),
       room: schedule.room || '',
       week_start: schedule.week_start ?? 1,
       week_end: schedule.week_end ?? 16,
@@ -400,19 +409,31 @@ export default function SchedulePage() {
   }
 
   const submit = async () => {
+    const isTime = scheduleMode === 'TIME'
     const payload = {
       subject_id: Number(form.subject_id),
       weekday: Number(form.weekday),
-      start_period: Number(form.start_period),
-      end_period: Number(form.end_period),
+      start_period: isTime ? null : Number(form.start_period),
+      end_period: isTime ? null : Number(form.end_period),
+      start_time: isTime ? form.start_time : null,
+      end_time: isTime ? form.end_time : null,
       room: form.room || null,
       week_start: Number(form.week_start),
       week_end: Number(form.week_end),
       note: form.note || null,
     }
 
-    if (!payload.subject_id || payload.start_period > payload.end_period) {
-      setError('Vui lòng chọn môn học hợp lệ và tiết bắt đầu phải nhỏ hơn hoặc bằng tiết kết thúc.')
+    if (!payload.subject_id) {
+      setError('Vui lòng chọn môn học.')
+      return
+    }
+    if (isTime) {
+      if (!form.start_time || !form.end_time || form.end_time <= form.start_time) {
+        setError('Giờ kết thúc phải sau giờ bắt đầu.')
+        return
+      }
+    } else if (Number(form.start_period) > Number(form.end_period)) {
+      setError('Tiết bắt đầu phải nhỏ hơn hoặc bằng tiết kết thúc.')
       return
     }
 
@@ -634,31 +655,56 @@ return (
               />
             </label>
 
-            <label className="schedule-field">
-              <span>Tiết bắt đầu</span>
-              <select
-                value={form.start_period}
-                onChange={(e) => setForm({ ...form, start_period: Number(e.target.value) })}
-                className="schedule-input"
-              >
-                {periodOptions.map((period) => (
-                  <option key={period.id} value={period.period_number}>Tiết {period.period_number}</option>
-                ))}
-              </select>
-            </label>
+            {scheduleMode === 'TIME' ? (
+              <>
+                <label className="schedule-field">
+                  <span>Giờ bắt đầu</span>
+                  <input
+                    type="time"
+                    value={form.start_time}
+                    onChange={(e) => setForm({ ...form, start_time: e.target.value })}
+                    className="schedule-input"
+                  />
+                </label>
+                <label className="schedule-field">
+                  <span>Giờ kết thúc</span>
+                  <input
+                    type="time"
+                    value={form.end_time}
+                    onChange={(e) => setForm({ ...form, end_time: e.target.value })}
+                    className="schedule-input"
+                  />
+                </label>
+              </>
+            ) : (
+              <>
+                <label className="schedule-field">
+                  <span>Tiết bắt đầu</span>
+                  <select
+                    value={form.start_period}
+                    onChange={(e) => setForm({ ...form, start_period: Number(e.target.value) })}
+                    className="schedule-input"
+                  >
+                    {periodOptions.map((period) => (
+                      <option key={period.id} value={period.period_number}>Tiết {period.period_number}</option>
+                    ))}
+                  </select>
+                </label>
 
-            <label className="schedule-field">
-              <span>Tiết kết thúc</span>
-              <select
-                value={form.end_period}
-                onChange={(e) => setForm({ ...form, end_period: Number(e.target.value) })}
-                className="schedule-input"
-              >
-                {periodOptions.map((period) => (
-                  <option key={period.id} value={period.period_number}>Tiết {period.period_number}</option>
-                ))}
-              </select>
-            </label>
+                <label className="schedule-field">
+                  <span>Tiết kết thúc</span>
+                  <select
+                    value={form.end_period}
+                    onChange={(e) => setForm({ ...form, end_period: Number(e.target.value) })}
+                    className="schedule-input"
+                  >
+                    {periodOptions.map((period) => (
+                      <option key={period.id} value={period.period_number}>Tiết {period.period_number}</option>
+                    ))}
+                  </select>
+                </label>
+              </>
+            )}
 
             <label className="schedule-field">
               <span>Tuần bắt đầu</span>
@@ -712,13 +758,17 @@ return (
               schedules.map((schedule) => {
                 const subject = subjects.find((item) => item.id === schedule.subject_id)
                 const weekdayLabel = weekdayOptions.find((day) => day.value === schedule.weekday)?.label ?? `Thứ ${schedule.weekday}`
+                const timeLabel =
+                  schedule.start_time && schedule.end_time
+                    ? `${schedule.start_time.slice(0, 5)} - ${schedule.end_time.slice(0, 5)}`
+                    : `Tiết ${schedule.start_period} - ${schedule.end_period}`
 
                 return (
                   <div key={schedule.id} className="schedule-item">
                     <div className="schedule-item__content">
                       <p className="schedule-item__name">{subject?.name ?? 'Môn học'}</p>
                       <p className="schedule-item__meta">
-                        {weekdayLabel} · Tiết {schedule.start_period} - {schedule.end_period} · {schedule.room || 'Không có phòng'}
+                        {weekdayLabel} · {timeLabel} · {schedule.room || 'Không có phòng'}
                       </p>
                       {schedule.note && <p className="schedule-item__note">{schedule.note}</p>}
                     </div>

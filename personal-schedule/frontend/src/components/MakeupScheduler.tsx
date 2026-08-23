@@ -195,7 +195,7 @@ export function MakeupScheduler({
                 return
               }
 
-              const duration = schedule.end_period - schedule.start_period
+              const duration = (schedule.end_period ?? 1) - (schedule.start_period ?? 1)
               const newEndPeriod = newStartPeriod + duration
 
               const maxPeriod = Math.max(...periods.map((p) => p.period_number), 0)
