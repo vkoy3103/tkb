@@ -4,16 +4,20 @@ from app.models.subject import Subject
 from app.schemas.subject import SubjectCreate, SubjectUpdate
 
 
-def get_subjects(db: Session) -> list[Subject]:
-    return db.query(Subject).order_by(Subject.name).all()
+def get_subjects(db: Session, user_id: int) -> list[Subject]:
+    return db.query(Subject).filter(Subject.user_id == user_id).order_by(Subject.name).all()
 
 
-def get_subject(db: Session, subject_id: int) -> Subject | None:
-    return db.query(Subject).filter(Subject.id == subject_id).first()
+def get_subject(db: Session, user_id: int, subject_id: int) -> Subject | None:
+    return (
+        db.query(Subject)
+        .filter(Subject.id == subject_id, Subject.user_id == user_id)
+        .first()
+    )
 
 
-def create_subject(db: Session, payload: SubjectCreate) -> Subject:
-    subject = Subject(**payload.model_dump())
+def create_subject(db: Session, user_id: int, payload: SubjectCreate) -> Subject:
+    subject = Subject(user_id=user_id, **payload.model_dump())
     db.add(subject)
     db.commit()
     db.refresh(subject)

@@ -10,12 +10,21 @@ from app.schemas.work_shift import WorkShiftCreate, WorkShiftUpdate
 from app.services.work_extra_service import calculate_amount, resolve_unit_price
 
 
-def get_work_shifts(db: Session) -> list[WorkShift]:
-    return db.query(WorkShift).order_by(WorkShift.date, WorkShift.scheduled_start).all()
+def get_work_shifts(db: Session, user_id: int) -> list[WorkShift]:
+    return (
+        db.query(WorkShift)
+        .filter(WorkShift.user_id == user_id)
+        .order_by(WorkShift.date, WorkShift.scheduled_start)
+        .all()
+    )
 
 
-def get_work_shift(db: Session, work_shift_id: int) -> WorkShift | None:
-    return db.query(WorkShift).filter(WorkShift.id == work_shift_id).first()
+def get_work_shift(db: Session, user_id: int, work_shift_id: int) -> WorkShift | None:
+    return (
+        db.query(WorkShift)
+        .filter(WorkShift.id == work_shift_id, WorkShift.user_id == user_id)
+        .first()
+    )
 
 
 def validate_shift_times(scheduled_start: time, scheduled_end: time, actual_start: time | None, actual_end: time | None) -> None:
@@ -25,9 +34,9 @@ def validate_shift_times(scheduled_start: time, scheduled_end: time, actual_star
         raise HTTPException(status_code=400, detail="actual_start must be before actual_end")
 
 
-def create_work_shift(db: Session, payload: WorkShiftCreate) -> WorkShift:
+def create_work_shift(db: Session, user_id: int, payload: WorkShiftCreate) -> WorkShift:
     validate_shift_times(payload.scheduled_start, payload.scheduled_end, payload.actual_start, payload.actual_end)
-    work_shift = WorkShift(**payload.model_dump())
+    work_shift = WorkShift(user_id=user_id, **payload.model_dump())
     db.add(work_shift)
     db.commit()
     db.refresh(work_shift)
@@ -63,6 +72,7 @@ def sync_work_shift_extras(
     db: Session,
     work_shift: WorkShift,
     *,
+    user_id: int,
     status: str | None = None,
     quantities: dict[str, float],
 ) -> None:
@@ -77,7 +87,9 @@ def sync_work_shift_extras(
         work_shift.status = status
 
     for code, quantity in quantities.items():
-        extra_type = db.query(WorkExtraType).filter(WorkExtraType.code == code).first()
+        extra_type = db.query(WorkExtraType).filter(
+            WorkExtraType.code == code, WorkExtraType.user_id == user_id
+        ).first()
         if extra_type is None:
             continue
         existing_rows = (
@@ -99,6 +111,7 @@ def sync_work_shift_extras(
             else:
                 db.add(
                     WorkExtra(
+                        user_id=user_id,
                         work_shift_id=work_shift.id,
                         extra_type_id=extra_type.id,
                         quantity=quantity,

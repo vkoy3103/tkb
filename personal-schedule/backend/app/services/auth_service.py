@@ -1,8 +1,8 @@
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.db.database import get_db
-from app.db.models.user import User
+from app.database import get_db
+from app.models.user import User
 from app.utils.dependencies import oauth2_scheme
 from app.utils.jwt import decode_access_token
 
@@ -10,7 +10,7 @@ from app.utils.jwt import decode_access_token
 def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
-):
+) -> User:
     payload = decode_access_token(token)
 
     if payload is None:
@@ -19,7 +19,7 @@ def get_current_user(
             detail="Invalid token"
         )
 
-    email: str= payload.get("sub")
+    email: str = payload.get("sub")
 
     if email is None:
         raise HTTPException(

@@ -14,15 +14,17 @@
 - 📊 **Thống kê** số giờ học, giờ làm và thu nhập theo ngày / tuần / tháng.
 - ⚙️ **Cấu hình hệ thống** (đơn giá từng loại giờ, khung giờ các ca).
 - 💾 **Sao lưu / phục hồi** database.
+- 🔐 **Đăng nhập đa người dùng** (auth JWT, mỗi user dữ liệu riêng — multi-tenant).
 
 | Thành phần | Công nghệ |
 |---|---|
-| Backend | Python + FastAPI + SQLAlchemy 2 + SQLite (mặc định) / PostgreSQL (tùy chọn qua env `DATABASE_URL`) |
+| Backend | Python + FastAPI + SQLAlchemy 2 + PostgreSQL (database chính, qua Docker) |
 | Frontend | React 19 + TypeScript + Vite + Tailwind CSS |
 | HTTP Client | Axios |
 | Router | React Router v6 |
+| Auth | JWT (python-jose) + bcrypt + OAuth2 Bearer; frontend: AuthContext + ProtectedRoute |
 | Linter | Oxlint |
-| Database (optional) | Docker Compose: `postgres:17` + `pgAdmin4` |
+| Database | Docker Compose: `postgres:17` + `pgAdmin4` (pgAdmin tại http://127.0.0.1:5050) |
 
 ---
 
@@ -41,7 +43,7 @@ personal-schedule/
 │   │   └── utils/            # Helper (hiện để trống)
 │   ├── data/
 │   │   ├── seed.py           # Script seed dữ liệu mẫu
-│   │   └── schedule.db       # SQLite database (tạo tự động khi chạy)
+│   │   └── schedule.db       # SQLite fallback (chỉ khi không set DATABASE_URL)
 │   ├── requirements.txt
 │   ├── run.py                # Chạy uvicorn
 │   └── README.md
@@ -72,21 +74,22 @@ personal-schedule/
 ### 3.1 Công nghệ & khởi động
 
 - **FastAPI** (`app/main.py`): title "Personal Schedule Manager", version `1.0.0`, CORS cho phép `http://localhost:5173` và `http://127.0.0.1:5173`.
-- **Database mặc định là SQLite** tại `backend/data/schedule.db` (engine dùng `check_same_thread=False`).
-- **Hỗ trợ PostgreSQL** qua biến môi trường `DATABASE_URL` — xem mục 8. Khi không đặt env, app tự dùng SQLite (không cần cấu hình gì). Driver cần: `psycopg2-binary`.
-- Trên startup: tự tạo bảng (`Base.metadata.create_all`) và gọi `ensure_default_settings()` để chèn các setting mặc định nếu chưa có.
+- **Database chính là PostgreSQL** chạy qua Docker (`docker-compose.yml`), database `myproject`.
+- Vẫn còn fallback SQLite (`backend/data/schedule.db`) khi **không** set env `DATABASE_URL` (chỉ để dev nhanh, không dùng cho production).
+- Trên startup: tự tạo bảng (`Base.metadata.create_all`) + migration idempotent thêm cột `user_id` cho các bảng cũ + `ensure_admin_user()` (tạo admin mặc định `admin@example.com` / `admin123`, gán dữ liệu cũ về admin, seed 10 periods) + `ensure_default_settings()` (seed settings riêng cho từng user).
 - Endpoint gốc: `GET /` và `GET /health`.
 
-**Cách chạy (SQLite — mặc định):**
+**Cách chạy (PostgreSQL — database chính):**
 
 ```bash
-# Terminal 1 — Backend
-cd backend
-source .venv/Scripts/activate
-uvicorn app.main:app --reload
-# hoặc: python run.py
+# Terminal 1 — Bật Postgres + Backend
+bash start_postgres.sh          # từ thư mục gốc: tự bật Docker + chạy backend trên Postgres
+# (hoặc thủ công:)
+#   docker compose up -d db
+#   cd backend && source .venv/Scripts/activate
+#   DATABASE_URL=postgresql://postgres:123456@127.0.0.1:5433/myproject uvicorn app.main:app --reload
 
-# Terminal 2 — Frontend
+# Terminal 2 — Frontend (dev, tùy chọn nếu không dùng build)
 cd frontend
 npm install
 npm run dev
@@ -98,14 +101,17 @@ Frontend gọi API qua `VITE_API_BASE_URL` (mặc định `http://127.0.0.1:8000
 
 | File | Bảng | Mô tả |
 |---|---|---|
-| `subject.py` | `subjects` | Môn học: code, name, credits, teacher, default_room, color, note, is_active |
-| `period.py` | `periods` | Tiết học: period_number (unique), start_time, end_time, label |
-| `schedule.py` | `class_schedules` | Lịch học: subject_id (FK), weekday (2=Thứ 2 ... 8=CN), start/end_period, room, week_start/end, note. Quan hệ `subject` và `overrides` (cascade delete) |
-| `schedule_override.py` | `schedule_overrides` | Thay đổi lịch: class_schedule_id (FK), date, type (`CANCELLED`/`RESCHEDULED`), new_date, new_start/end_period, new_room, reason, note |
-| `work_shift.py` | `work_shifts` | Ca làm: date, shift_type, scheduled_start/end, actual_start/end, status (mặc định `scheduled`), note. Quan hệ `extras` (cascade delete) |
-| `work_extra_type.py` | `work_extra_types` | Loại phụ thu: code (unique), name, unit, rate_type (`FIXED`/`MULTIPLIER`), rate_value, description, is_active |
-| `work_extra.py` | `work_extras` | Phụ thu của ca: work_shift_id (FK), extra_type_id (FK), quantity, unit_price, amount, start/end_time, note |
-| `setting.py` | `settings` | Cấu hình key/value: key (unique), value, description |
+| `user.py` | `users` | Tài khoản đăng nhập: email (unique), password_hash (bcrypt), first/last_name, phone_number, picture, role (`admin`/`user`), credit_balance, is_active |
+| `subject.py` | `subjects` | Môn học: **user_id** (FK users), code, name, credits, teacher, default_room, color, note, is_active |
+| `period.py` | `periods` | Tiết học (dùng chung mọi user): period_number (unique), start_time, end_time, label |
+| `schedule.py` | `class_schedules` | Lịch học: **user_id**, subject_id (FK), weekday (2=Thứ 2 ... 8=CN), start/end_period, room, week_start/end, note. Quan hệ `subject` và `overrides` (cascade delete) |
+| `schedule_override.py` | `schedule_overrides` | Thay đổi lịch: **user_id**, class_schedule_id (FK), date, type (`CANCELLED`/`RESCHEDULED`), new_date, new_start/end_period, new_room, reason, note |
+| `work_shift.py` | `work_shifts` | Ca làm: **user_id**, date, shift_type, scheduled_start/end, actual_start/end, status (mặc định `scheduled`), note. Quan hệ `extras` (cascade delete) |
+| `work_extra_type.py` | `work_extra_types` | Loại phụ thu: **user_id**, code, name, unit, rate_type (`FIXED`/`MULTIPLIER`), rate_value, description, is_active |
+| `work_extra.py` | `work_extras` | Phụ thu của ca: **user_id**, work_shift_id (FK), extra_type_id (FK), quantity, unit_price, amount, start/end_time, note |
+| `setting.py` | `settings` | Cấu hình key/value theo user: **user_id**, key, value, description |
+
+> 🔐 **Multi-tenant**: mọi bảng dữ liệu (trừ `users` và `periods`) đều có cột `user_id` — mỗi user chỉ thấy/ghi dữ liệu của mình. `periods` là danh mục tiết học dùng chung.
 
 Quan hệ chính:
 
@@ -123,6 +129,7 @@ Mọi router đều gắn prefix `/api`. Pattern chuẩn CRUD: `GET list`, `POST
 
 | Router | Prefix | Endpoints đặc biệt |
 |---|---|---|
+| `auth_router.py` | `/auth` | `POST /login`, `GET /me`, `POST /logout`, `POST /register` (JWT Bearer) |
 | `subject_router.py` | `/subjects` | CRUD môn học |
 | `period_router.py` | `/periods` | Chỉ `GET` danh sách tiết |
 | `schedule_router.py` | `/schedules` | CRUD lịch học |
@@ -133,10 +140,13 @@ Mọi router đều gắn prefix `/api`. Pattern chuẩn CRUD: `GET list`, `POST
 | `statistics_router.py` | `/statistics` | `GET /day?date=`, `GET /week?date=`, `GET /month?date=` |
 | `backup_router.py` | `/backups` | `GET /export` (tải file `.db`), `POST /restore` (upload file `.db`/`.sqlite`) |
 
+> 🔐 **Bảo vệ API**: tất cả endpoint trừ `/auth/*` đều yêu cầu `Authorization: Bearer <token>` (dependency `get_current_user`). Không có token → `401`.
+
 ### 3.4 Services (logic nghiệp vụ) — `backend/app/services/`
 
-- `subject_service.py`, `schedule_service.py`, `schedule_override_service.py`, `work_shift_service.py`, `period_service.py`: CRUD cơ bản.
-- `settings_service.py`: đọc/ghi settings + `ensure_default_settings()` chèn 11 settings mặc định.
+- `subject_service.py`, `schedule_service.py`, `schedule_override_service.py`, `work_shift_service.py`, `period_service.py`: CRUD cơ bản (tất cả đều nhận `user_id` để lọc dữ liệu theo user).
+- `auth_service.py`: `get_current_user` — giải mã JWT, tải user từ DB, dependency dùng chung cho mọi router.
+- `settings_service.py`: đọc/ghi settings theo user; `ensure_default_settings()` seed settings riêng cho TỪNG user.
 - `work_extra_service.py`: validate `quantity`/`unit_price`/`amount` không âm; tự tính `amount = quantity × unit_price` (nếu không truyền explicit amount).
 - `statistics_service.py`: tính toán thống kê:
   - `normal_hours`: từ `actual_start` đến `min(actual_end, scheduled_end)`.
@@ -244,7 +254,7 @@ FastAPI Router  (/api/*)
 Service  (logic nghiệp vụ)
       │
       ▼
-SQLAlchemy Model → SQLite (backend/data/schedule.db)
+SQLAlchemy Model → PostgreSQL (Docker, db `myproject` / port 5433)
 ```
 
 Ví dụ cụ thể — xem Dashboard:
@@ -259,23 +269,28 @@ Ví dụ cụ thể — xem Dashboard:
 ## 6. Một số lưu ý & điểm cần hoàn thiện
 
 1. **`/calendar`** chưa triển khai (placeholder), FullCalendar đã cài sẵn nhưng chưa dùng.
-2. **`workExtraTypeApi.ts`** gọi `/work-extra-types` nhưng backend **không có** `work_extra_type_router` — cần thêm hoặc bỏ.
+2. **`workExtraTypeApi.ts`** — backend đã có `work_extra_type_router` (đã bổ sung), frontend gọi `/work-extra-types` hoạt động bình thường.
 3. **Trùng route `/health`** trong `main.py` (định nghĩa 2 lần) — không gây lỗi nhưng nên dọn.
 4. **Root folder** có file thừa `WorkShiftEditor.tsx` (bản sao) và `nul` (file rác Windows).
-5. **Backup/Restore** — backend đã có đủ API, nhưng UI ở `Settings.tsx` mới chỉ hiển thị mô tả, chưa có nút gọi API.
+5. **Backup/Restore** — backend đã có đủ API, nhưng UI ở `Settings.tsx` mới chỉ hiển thị mô tả, chưa có nút gọi API. (Lưu ý: `/api/backups/*` chỉ hỗ trợ SQLite — Postgres dùng `pg_dump`.)
 6. **`statistics_service`** dùng `current.weekday() + 2 == schedule.weekday` để map ngày (quy ước: 2 = Thứ 2 ... 8 = Chủ nhật) — lưu ý khi sửa dữ liệu.
-7. Chạy `seed.py` nhiều lần có thể lỗi unique do `WorkExtraType.code` không được xóa/kiểm tra trước khi chèn.
+7. **Auth (đã hoàn thiện)**: login/register/logout, JWT Bearer, mọi API yêu cầu token, mỗi user dữ liệu riêng (multi-tenant qua cột `user_id`). Tài khoản admin mặc định `admin@example.com` / `admin123` (tự tạo khi startup).
+8. **`seed.py`** dùng cho SQLite fallback; khi chạy Postgres nên dùng `python -m data.migrate_sqlite_to_postgres` hoặc đăng ký tài khoản mới (mỗi user được seed settings + work_extra_types mặc định tự động).
 
 ---
 
 ## 7. Các lệnh thường dùng
 
 ```bash
-# Backend
+# 🔐 Tài khoản admin mặc định (tự tạo khi startup)
+#   email:    admin@example.com
+#   mật khẩu: admin123
+#   (có thể đổi bằng env ADMIN_EMAIL / ADMIN_PASSWORD)
+
+# Backend (PostgreSQL — database chính)
 cd backend
 source .venv/Scripts/activate
-uvicorn app.main:app --reload        # hoặc python run.py
-python -m data.seed                   # reset dữ liệu mẫu
+DATABASE_URL=postgresql://postgres:123456@127.0.0.1:5433/myproject uvicorn app.main:app --reload
 
 # Frontend
 cd frontend
@@ -287,6 +302,11 @@ npm run lint                          # oxlint
 bash start_postgres.sh                # bật Docker + chạy backend trên Postgres
 bash start_postgres.sh --seed         # thêm: seed lại dữ liệu
 bash start_postgres.sh --pg           # chỉ bật Postgres + pgAdmin
+
+# 👀 Xem database (chi tiết ở mục 8.4)
+#   - pgAdmin : http://127.0.0.1:5050   (admin@example.com / admin)
+#   - psql CLI: docker exec -e PGPASSWORD=123456 myproject-db psql ...
+#   - Swagger : http://127.0.0.1:8000/docs  (bấm Authorize để đăng nhập)
 ```
 
 ---
@@ -295,7 +315,7 @@ bash start_postgres.sh --pg           # chỉ bật Postgres + pgAdmin
 
 ### 8.1 Tổng quan
 
-Backend mặc định dùng SQLite. Muốn chạy với **PostgreSQL**, chỉ cần đặt biến môi trường `DATABASE_URL` trước lệnh chạy; `database.py` tự nhận biết (thêm `psycopg2-binary==2.9.10` vào `requirements.txt`). Container Postgres + pgAdmin được khai báo trong `docker-compose.yml` ở thư mục gốc.
+Database chính của app là **PostgreSQL** chạy qua Docker. Container `db` (postgres:17) + `pgadmin` được khai báo trong `docker-compose.yml` ở thư mục gốc; backend kết nối qua env `DATABASE_URL`. (SQLite chỉ là fallback khi bỏ trống env — không dùng cho production.)
 
 ### 8.2 `docker-compose.yml`
 
@@ -351,7 +371,7 @@ DATABASE_URL=postgresql://postgres:123456@127.0.0.1:5433/myproject python -m dat
 > DATABASE_URL=postgresql://postgres:123456@127.0.0.1:5433/myproject python -m data.migrate_sqlite_to_postgres
 > ```
 
-### 8.4 Xem database qua pgAdmin
+#### 8.4.1 Qua pgAdmin (GUI — khuyến nghị)
 
 ```bash
 docker compose up -d pgadmin
@@ -365,7 +385,40 @@ docker compose up -d pgadmin
   - Maintenance DB: `myproject`
   - Username: `postgres` / Password: `123456`
 
-Đường dẫn xem dữ liệu: **Object Explorer → Servers → myproject-local → Databases → myproject → Schemas → public → Tables** → chọn bảng → **All Rows** (hoặc chuột phải → View/Edit Data).
+Đường dẫn xem dữ liệu: **Object Explorer → Servers → myproject-local → Databases → myproject → Schemas → public → Tables** → chọn bảng → **All Rows** (hoặc chuột phải → View/Edit Data). Muốn chạy SQL: chuột phải database → **Query Tool**.
+
+#### 8.4.2 Qua psql CLI (nhanh, không cần GUI)
+
+```bash
+# Liệt kê bảng
+ docker exec -e PGPASSWORD=123456 myproject-db psql "postgresql://postgres@localhost:5432/myproject" -c "\\dt"
+
+# Xem bảng users (tài khoản đăng nhập)
+ docker exec -e PGPASSWORD=123456 myproject-db psql "postgresql://postgres@localhost:5432/myproject" -c "SELECT id, email, role, is_active FROM users;"
+
+# Xem dữ liệu 1 bảng (chú ý cột user_id — mỗi user chỉ thấy dữ liệu của mình)
+ docker exec -e PGPASSWORD=123456 myproject-db psql "postgresql://postgres@localhost:5432/myproject" -c "SELECT id, user_id, name FROM subjects;"
+```
+
+> Mẹo: thêm `-t -A -c "..." < /dev/null` để tránh màn hình interactive.
+
+#### 8.4.3 Qua API / Swagger UI (đã bật đăng nhập)
+
+Vì API yêu cầu đăng nhập, phải gắn token:
+
+```bash
+# Đăng nhập lấy token
+TOKEN=$(curl -s -X POST http://127.0.0.1:8000/api/auth/login \
+  -d "username=admin@example.com&password=admin123" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  | python -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+
+# Gọi API kèm token
+curl -s http://127.0.0.1:8000/api/subjects -H "Authorization: Bearer $TOKEN"
+curl -s "http://127.0.0.1:8000/api/statistics/month?date=2026-08-01" -H "Authorization: Bearer $TOKEN"
+```
+
+Hoặc mở **Swagger UI** http://127.0.0.1:8000/docs → bấm nút **Authorize** (🔓) → nhập `admin@example.com` / `admin123` → thử endpoint trực tiếp không cần thao tác token tay.
 
 ### 8.5 Lưu ý khi dùng Postgres Docker
 
@@ -373,5 +426,9 @@ docker compose up -d pgadmin
    ```bash
    docker exec myproject-db psql -U postgres -d myproject -c "ALTER USER postgres WITH PASSWORD '123456';"
    ```
-2. **Xem nhanh qua CLI**: `docker compose exec -e PGPASSWORD=123456 db psql -U postgres -d myproject -c "\\dt"` (thêm `-t -A -c "..." < /dev/null` để tránh màn hình interactive).
-3. **Backup/Restore**: endpoint `/api/backups/*` chỉ hỗ trợ SQLite (trả `501` khi đang dùng Postgres) — với Postgres dùng `pg_dump`/`pg_restore`.
+2. **Multi-tenant**: các bảng dữ liệu (subjects, work_shifts...) có cột `user_id`. Qua pgAdmin/psql bạn thấy tất cả dữ liệu; qua API mỗi user chỉ nhận dữ liệu của user đó.
+3. **Backup/Restore**: endpoint `/api/backups/*` chỉ hỗ trợ SQLite (trả `501` khi dùng Postgres) — với Postgres dùng `pg_dump`/`pg_restore`:
+   ```bash
+   docker exec -e PGPASSWORD=123456 myproject-db pg_dump -U postgres -d myproject > backup.sql
+   docker exec -i -e PGPASSWORD=123456 myproject-db psql -U postgres -d myproject < backup.sql
+   ```

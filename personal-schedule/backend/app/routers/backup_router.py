@@ -3,6 +3,8 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.database import DATA_DIR, IS_SQLITE, SessionLocal, SQLITE_PATH
+from app.models.user import User
+from app.services.auth_service import get_current_user
 
 router = APIRouter(prefix="/backups", tags=["backups"])
 
@@ -13,7 +15,9 @@ def get_db():
 
 
 @router.get("/export")
-def export_database():
+def export_database(
+    current_user: User = Depends(get_current_user),
+):
     """Export the current SQLite database file for backup/download."""
     if not IS_SQLITE:
         raise HTTPException(
@@ -26,7 +30,10 @@ def export_database():
 
 
 @router.post("/restore")
-def restore_database(file: UploadFile = File(...)):
+def restore_database(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
     """Restore the database from an uploaded .db or .sqlite file."""
     if not IS_SQLITE:
         raise HTTPException(

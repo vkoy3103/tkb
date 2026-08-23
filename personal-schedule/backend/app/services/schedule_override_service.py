@@ -6,12 +6,21 @@ from app.models.schedule_override import ScheduleOverride
 from app.schemas.schedule_override import ScheduleOverrideCreate, ScheduleOverrideUpdate
 
 
-def get_schedule_overrides(db: Session) -> list[ScheduleOverride]:
-    return db.query(ScheduleOverride).order_by(ScheduleOverride.date, ScheduleOverride.id).all()
+def get_schedule_overrides(db: Session, user_id: int) -> list[ScheduleOverride]:
+    return (
+        db.query(ScheduleOverride)
+        .filter(ScheduleOverride.user_id == user_id)
+        .order_by(ScheduleOverride.date, ScheduleOverride.id)
+        .all()
+    )
 
 
-def get_schedule_override(db: Session, override_id: int) -> ScheduleOverride | None:
-    return db.query(ScheduleOverride).filter(ScheduleOverride.id == override_id).first()
+def get_schedule_override(db: Session, user_id: int, override_id: int) -> ScheduleOverride | None:
+    return (
+        db.query(ScheduleOverride)
+        .filter(ScheduleOverride.id == override_id, ScheduleOverride.user_id == user_id)
+        .first()
+    )
 
 
 def validate_override_type(override_type: str) -> None:
@@ -31,15 +40,15 @@ def validate_override_periods(start_period: int | None, end_period: int | None) 
         raise HTTPException(status_code=400, detail="new_start_period must be less than or equal to new_end_period")
 
 
-def create_schedule_override(db: Session, payload: ScheduleOverrideCreate) -> ScheduleOverride:
+def create_schedule_override(db: Session, user_id: int, payload: ScheduleOverrideCreate) -> ScheduleOverride:
     validate_override_type(payload.type)
     validate_override_periods(payload.new_start_period, payload.new_end_period)
 
-    schedule = db.query(Schedule).filter(Schedule.id == payload.class_schedule_id).first()
+    schedule = db.query(Schedule).filter(Schedule.id == payload.class_schedule_id, Schedule.user_id == user_id).first()
     if schedule is None:
         raise HTTPException(status_code=404, detail="Schedule not found")
 
-    override = ScheduleOverride(**payload.model_dump())
+    override = ScheduleOverride(user_id=user_id, **payload.model_dump())
     db.add(override)
     db.commit()
     db.refresh(override)
@@ -55,7 +64,10 @@ def update_schedule_override(db: Session, override: ScheduleOverride, payload: S
         end_period = update_data.get("new_end_period", override.new_end_period)
         validate_override_periods(start_period, end_period)
     if "class_schedule_id" in update_data and update_data["class_schedule_id"] is not None:
-        schedule = db.query(Schedule).filter(Schedule.id == update_data["class_schedule_id"]).first()
+        schedule = db.query(Schedule).filter(
+            Schedule.id == update_data["class_schedule_id"],
+            Schedule.user_id == override.user_id,
+        ).first()
         if schedule is None:
             raise HTTPException(status_code=404, detail="Schedule not found")
 

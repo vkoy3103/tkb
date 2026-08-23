@@ -9,9 +9,9 @@ from app.models.work_shift import WorkShift
 from app.services.settings_service import get_rates, get_settings
 
 
-def get_ot_start_time() -> dt_time:
+def get_ot_start_time(user_id: int) -> dt_time:
     """Giờ bắt đầu tính OT (mặc định 22:00), đọc từ setting OT_START_TIME."""
-    settings = get_settings()
+    settings = get_settings(user_id)
     for setting in settings:
         if setting.key.upper() == "OT_START_TIME" and setting.value:
             try:
@@ -46,20 +46,29 @@ def calculate_work_shift_ot_hours(shift: WorkShift, ot_start: dt_time) -> float:
     return max(0.0, (actual_end - start).total_seconds() / 3600.0)
 
 
-def get_shifts_in_range(db: Session, start_date: date, end_date: date) -> list[WorkShift]:
-    return db.query(WorkShift).filter(WorkShift.date >= start_date, WorkShift.date <= end_date).all()
+def get_shifts_in_range(db: Session, user_id: int, start_date: date, end_date: date) -> list[WorkShift]:
+    return (
+        db.query(WorkShift)
+        .filter(WorkShift.user_id == user_id, WorkShift.date >= start_date, WorkShift.date <= end_date)
+        .all()
+    )
 
 
-def get_extras_in_range(db: Session, start_date: date, end_date: date) -> list[WorkExtra]:
-    return db.query(WorkExtra).join(WorkShift).filter(WorkShift.date >= start_date, WorkShift.date <= end_date).all()
+def get_extras_in_range(db: Session, user_id: int, start_date: date, end_date: date) -> list[WorkExtra]:
+    return (
+        db.query(WorkExtra)
+        .join(WorkShift)
+        .filter(WorkShift.user_id == user_id, WorkShift.date >= start_date, WorkShift.date <= end_date)
+        .all()
+    )
 
 
 def get_period_map(db: Session) -> dict[int, Period]:
     return {period.period_number: period for period in db.query(Period).all()}
 
 
-def get_study_hours(db: Session, start_date: date, end_date: date) -> float:
-    schedules = db.query(Schedule).all()
+def get_study_hours(db: Session, user_id: int, start_date: date, end_date: date) -> float:
+    schedules = db.query(Schedule).filter(Schedule.user_id == user_id).all()
     periods = get_period_map(db)
     total = 0.0
 
@@ -79,14 +88,14 @@ def get_study_hours(db: Session, start_date: date, end_date: date) -> float:
     return total
 
 
-def make_statistics(db: Session, start_date: date, end_date: date) -> dict:
-    settings = get_rates()
-    shifts = get_shifts_in_range(db, start_date, end_date)
-    extras = get_extras_in_range(db, start_date, end_date)
-    study_hours = get_study_hours(db, start_date, end_date)
+def make_statistics(db: Session, user_id: int, start_date: date, end_date: date) -> dict:
+    settings = get_rates(user_id)
+    shifts = get_shifts_in_range(db, user_id, start_date, end_date)
+    extras = get_extras_in_range(db, user_id, start_date, end_date)
+    study_hours = get_study_hours(db, user_id, start_date, end_date)
 
     normal_hours = sum(calculate_work_shift_normal_hours(shift) for shift in shifts)
-    ot_start = get_ot_start_time()
+    ot_start = get_ot_start_time(user_id)
     ot_hours = sum(calculate_work_shift_ot_hours(shift, ot_start) for shift in shifts)
 
     npc_hours = 0.0
@@ -126,20 +135,20 @@ def make_statistics(db: Session, start_date: date, end_date: date) -> dict:
     }
 
 
-def day_statistics(db: Session, date_value: date) -> dict:
-    return make_statistics(db, date_value, date_value)
+def day_statistics(db: Session, user_id: int, date_value: date) -> dict:
+    return make_statistics(db, user_id, date_value, date_value)
 
 
-def week_statistics(db: Session, date_value: date) -> dict:
+def week_statistics(db: Session, user_id: int, date_value: date) -> dict:
     start = date_value - timedelta(days=date_value.weekday())
     end = start + timedelta(days=6)
-    return make_statistics(db, start, end)
+    return make_statistics(db, user_id, start, end)
 
 
-def month_statistics(db: Session, date_value: date) -> dict:
+def month_statistics(db: Session, user_id: int, date_value: date) -> dict:
     start = date_value.replace(day=1)
     if date_value.month == 12:
         end = date_value.replace(year=date_value.year + 1, month=1, day=1) - timedelta(days=1)
     else:
         end = date_value.replace(month=date_value.month + 1, day=1) - timedelta(days=1)
-    return make_statistics(db, start, end)
+    return make_statistics(db, user_id, start, end)

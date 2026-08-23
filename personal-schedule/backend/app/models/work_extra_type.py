@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, Text
+from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -8,10 +8,10 @@ class WorkExtraType(Base):
     __tablename__ = "work_extra_types"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     code = Column(
         String(50),
-        unique=True,
         nullable=False,
         index=True,
     )

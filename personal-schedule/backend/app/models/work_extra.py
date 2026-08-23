@@ -9,6 +9,7 @@ class WorkExtra(Base):
     __tablename__ = "work_extras"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     work_shift_id = Column(Integer, ForeignKey("work_shifts.id", ondelete="CASCADE"), nullable=False)
     extra_type_id = Column(
         Integer,

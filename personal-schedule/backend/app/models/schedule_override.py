@@ -18,6 +18,8 @@ class ScheduleOverride(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+
     class_schedule_id = Column(
         Integer,
         ForeignKey(

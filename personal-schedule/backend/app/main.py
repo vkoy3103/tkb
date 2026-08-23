@@ -8,7 +8,9 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.database import Base, engine
+from app.database import Base, IS_SQLITE, SessionLocal, engine
+from app.models.user import User  # noqa: F401  (đảm bảo bảng users được tạo)
+from app.routers.auth_router import auth as auth_router
 from app.routers.backup_router import router as backup_router
 from app.routers.period_router import router as period_router
 from app.routers.schedule_override_router import router as schedule_override_router
@@ -20,6 +22,7 @@ from app.routers.work_extra_router import router as work_extra_router
 from app.routers.work_extra_type_router import router as work_extra_type_router
 from app.routers.work_shift_router import router as work_shift_router
 from app.services.settings_service import ensure_default_settings
+from app.utils.security import hash_password
 
 app = FastAPI(
     title="Personal Schedule Manager",
@@ -41,6 +44,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router, prefix="/api")
 app.include_router(subject_router, prefix="/api")
 app.include_router(period_router, prefix="/api")
 app.include_router(schedule_router, prefix="/api")
@@ -85,13 +89,54 @@ _mount_frontend()
 def on_startup():
     Base.metadata.create_all(bind=engine)
     try:
+        _ensure_user_id_columns()
+    except SQLAlchemyError:
+        pass
+    try:
+        _drop_legacy_unique_constraints()
+    except SQLAlchemyError:
+        pass
+    try:
         _ensure_subject_week_columns()
+    except SQLAlchemyError:
+        pass
+    try:
+        ensure_admin_user()
     except SQLAlchemyError:
         pass
     try:
         ensure_default_settings()
     except SQLAlchemyError:
         pass
+
+
+# Các bảng có cột user_id (multi-tenant)
+_USER_ID_TABLES = [
+    "subjects",
+    "class_schedules",
+    "schedule_overrides",
+    "work_shifts",
+    "work_extras",
+    "work_extra_types",
+    "settings",
+]
+
+
+def _ensure_user_id_columns():
+    """Thêm cột user_id cho các bảng cũ (migration idempotent, hỗ trợ SQLite + Postgres)."""
+    inspector = inspect(engine)
+    with engine.begin() as conn:
+        for table in _USER_ID_TABLES:
+            try:
+                columns = [col["name"] for col in inspector.get_columns(table)]
+            except Exception:
+                continue
+            if "user_id" in columns:
+                continue
+            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN user_id INTEGER"))
+            conn.execute(
+                text(f"CREATE INDEX IF NOT EXISTS ix_{table}_user_id ON {table} (user_id)")
+            )
 
 
 def _ensure_subject_week_columns():
@@ -103,6 +148,97 @@ def _ensure_subject_week_columns():
             conn.execute(text("ALTER TABLE subjects ADD COLUMN week_start INTEGER"))
         if "week_end" not in columns:
             conn.execute(text("ALTER TABLE subjects ADD COLUMN week_end INTEGER"))
+
+
+def _drop_legacy_unique_constraints():
+    """Bỏ unique constraint TOÀN CỤC cũ trên settings.key / work_extra_types.code
+    (multi-tenant: mỗi user có key/code riêng nên không được unique toàn DB)."""
+    with engine.begin() as conn:
+        if not IS_SQLITE:
+            # Postgres: drop constraint + index cũ
+            conn.execute(text("ALTER TABLE settings DROP CONSTRAINT IF EXISTS settings_key_key"))
+            conn.execute(text("DROP INDEX IF EXISTS ix_work_extra_types_code"))
+        else:
+            # SQLite: các unique được tạo khi CREATE TABLE — cần recreate table
+            # (drop index thường không có hiệu lực với UNIQUE constraint)
+            _recreate_table_without_unique(conn, "settings", "key")
+            _recreate_table_without_unique(conn, "work_extra_types", "code")
+
+
+def _recreate_table_without_unique(conn, table: str, unique_col: str):
+    """SQLite: recreate bảng để bỏ unique constraint (migration đơn giản cho dev)."""
+    inspector = inspect(engine)
+    columns = [col for col in inspector.get_columns(table)]
+    col_defs = ", ".join(
+        f'"{c["name"]}" {c["type"]}'
+        + (" PRIMARY KEY" if c.get("primary_key") else "")
+        for c in columns
+    )
+    conn.execute(text(f"PRAGMA foreign_keys=OFF"))
+    conn.execute(text(f'ALTER TABLE {table} RENAME TO {table}__old'))
+    conn.execute(text(f"CREATE TABLE {table} ({col_defs})"))
+    col_names = ", ".join(f'"{c["name"]}"' for c in columns)
+    conn.execute(text(f"INSERT INTO {table} ({col_names}) SELECT {col_names} FROM {table}__old"))
+    conn.execute(text(f"DROP TABLE {table}__old"))
+    conn.execute(text(f"PRAGMA foreign_keys=ON"))
+
+
+def ensure_admin_user():
+    """Tạo tài khoản admin mặc định nếu chưa tồn tại + gán dữ liệu cũ về admin."""
+    from app.models.period import Period
+
+    with SessionLocal() as db:
+        admin = db.query(User).filter(User.email == os.environ.get("ADMIN_EMAIL", "admin@example.com")).first()
+        if admin is None:
+            admin = User(
+                email=os.environ.get("ADMIN_EMAIL", "admin@example.com"),
+                password_hash=hash_password(os.environ.get("ADMIN_PASSWORD", "admin123")),
+                first_name="Admin",
+                last_name="System",
+                role="admin",
+                is_active=True,
+                credit_balance=0,
+            )
+            db.add(admin)
+            db.commit()
+            db.refresh(admin)
+        else:
+            db.refresh(admin)
+
+        # Gán dữ liệu đang không có user_id về admin (migration từ bản cũ)
+        for table in _USER_ID_TABLES:
+            db.execute(
+                text(f"UPDATE {table} SET user_id = :uid WHERE user_id IS NULL OR user_id = 0"),
+                {"uid": admin.id},
+            )
+        db.commit()
+
+        # Seed periods mặc định nếu bảng trống
+        if db.query(Period).count() == 0:
+            from datetime import time as dt_time
+
+            period_rows = [
+                (1, dt_time(7, 0), dt_time(8, 0), "Tiết 1"),
+                (2, dt_time(8, 0), dt_time(9, 0), "Tiết 2"),
+                (3, dt_time(9, 0), dt_time(10, 0), "Tiết 3"),
+                (4, dt_time(10, 0), dt_time(11, 0), "Tiết 4"),
+                (5, dt_time(11, 0), dt_time(12, 0), "Tiết 5"),
+                (6, dt_time(12, 30), dt_time(13, 30), "Tiết 6"),
+                (7, dt_time(13, 30), dt_time(14, 30), "Tiết 7"),
+                (8, dt_time(14, 30), dt_time(15, 30), "Tiết 8"),
+                (9, dt_time(15, 30), dt_time(16, 30), "Tiết 9"),
+                (10, dt_time(16, 30), dt_time(17, 30), "Tiết 10"),
+            ]
+            for num, start, end, label in period_rows:
+                db.add(Period(period_number=num, start_time=start, end_time=end, label=label))
+            db.commit()
+
+        result = {
+            "id": admin.id,
+            "email": admin.email,
+            "role": admin.role,
+        }
+        return result
 
 
 @app.get("/")

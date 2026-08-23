@@ -6,12 +6,21 @@ from app.models.subject import Subject
 from app.schemas.schedule import ScheduleCreate, ScheduleUpdate
 
 
-def get_schedules(db: Session) -> list[Schedule]:
-    return db.query(Schedule).order_by(Schedule.weekday, Schedule.start_period).all()
+def get_schedules(db: Session, user_id: int) -> list[Schedule]:
+    return (
+        db.query(Schedule)
+        .filter(Schedule.user_id == user_id)
+        .order_by(Schedule.weekday, Schedule.start_period)
+        .all()
+    )
 
 
-def get_schedule(db: Session, schedule_id: int) -> Schedule | None:
-    return db.query(Schedule).filter(Schedule.id == schedule_id).first()
+def get_schedule(db: Session, user_id: int, schedule_id: int) -> Schedule | None:
+    return (
+        db.query(Schedule)
+        .filter(Schedule.id == schedule_id, Schedule.user_id == user_id)
+        .first()
+    )
 
 
 def validate_schedule_periods(start_period: int, end_period: int) -> None:
@@ -21,11 +30,11 @@ def validate_schedule_periods(start_period: int, end_period: int) -> None:
         raise HTTPException(status_code=400, detail="start_period must be less than or equal to end_period")
 
 
-def create_schedule(db: Session, payload: ScheduleCreate) -> Schedule:
+def create_schedule(db: Session, user_id: int, payload: ScheduleCreate) -> Schedule:
     validate_schedule_periods(payload.start_period, payload.end_period)
-    if not db.query(Subject).filter(Subject.id == payload.subject_id).first():
+    if not db.query(Subject).filter(Subject.id == payload.subject_id, Subject.user_id == user_id).first():
         raise HTTPException(status_code=404, detail="Subject not found")
-    schedule = Schedule(**payload.model_dump())
+    schedule = Schedule(user_id=user_id, **payload.model_dump())
     db.add(schedule)
     db.commit()
     db.refresh(schedule)
@@ -39,7 +48,7 @@ def update_schedule(db: Session, schedule: Schedule, payload: ScheduleUpdate) ->
         end_period = update_data.get("end_period", schedule.end_period)
         validate_schedule_periods(start_period, end_period)
     if "subject_id" in update_data and update_data["subject_id"] is not None:
-        if not db.query(Subject).filter(Subject.id == update_data["subject_id"]).first():
+        if not db.query(Subject).filter(Subject.id == update_data["subject_id"], Subject.user_id == schedule.user_id).first():
             raise HTTPException(status_code=404, detail="Subject not found")
     for field, value in update_data.items():
         setattr(schedule, field, value)

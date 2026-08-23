@@ -26,3 +26,9 @@ engine = create_engine(
 )
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 Base = declarative_base()
+
+
+def get_db():
+    """Dependency FastAPI trả về một DB session (dùng chung cho auth + routers)."""
+    with SessionLocal() as db:
+        yield db

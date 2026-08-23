@@ -10,4 +10,43 @@ const api = axios.create({
   },
 })
 
+// --- Auth token (lưu trong localStorage) ---
+const TOKEN_KEY = 'auth_token'
+
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY)
+}
+
+export function setToken(token: string | null): void {
+  if (token) {
+    localStorage.setItem(TOKEN_KEY, token)
+  } else {
+    localStorage.removeItem(TOKEN_KEY)
+  }
+}
+
+// Gắn token vào mọi request
+api.interceptors.request.use((config) => {
+  const token = getToken()
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+// Xử lý 401: xóa token + chuyển về trang login
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      setToken(null)
+      // Chỉ redirect khi đang ở SPA và không phải chính request login
+      if (typeof window !== 'undefined' && !error.config?.url?.includes('/auth/login')) {
+        window.location.href = '/login'
+      }
+    }
+    return Promise.reject(error)
+  },
+)
+
 export default api

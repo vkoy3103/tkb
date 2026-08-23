@@ -2,12 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
+from app.models.user import User
 from app.schemas.work_shift import (
     WorkShiftCreate,
     WorkShiftExtrasUpdate,
     WorkShiftRead,
     WorkShiftUpdate,
 )
+from app.services.auth_service import get_current_user
 from app.services.work_shift_service import (
     create_work_shift,
     delete_work_shift,
@@ -28,39 +30,59 @@ def get_db():
 # ----- Work shift management -----
 
 @router.get("", response_model=list[WorkShiftRead])
-def read_work_shifts(db: Session = Depends(get_db)):
+def read_work_shifts(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Get all work shifts sorted by date and scheduled start time."""
-    return get_work_shifts(db)
+    return get_work_shifts(db, current_user.id)
 
 
 @router.post("", response_model=WorkShiftRead)
-def create_work_shift_endpoint(payload: WorkShiftCreate, db: Session = Depends(get_db)):
+def create_work_shift_endpoint(
+    payload: WorkShiftCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Create a new work shift with scheduled and actual time information."""
-    return create_work_shift(db, payload)
+    return create_work_shift(db, current_user.id, payload)
 
 
 @router.get("/{work_shift_id}", response_model=WorkShiftRead)
-def read_work_shift(work_shift_id: int, db: Session = Depends(get_db)):
+def read_work_shift(
+    work_shift_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Fetch one work shift by id."""
-    work_shift = get_work_shift(db, work_shift_id)
+    work_shift = get_work_shift(db, current_user.id, work_shift_id)
     if work_shift is None:
         raise HTTPException(status_code=404, detail="WorkShift not found")
     return work_shift
 
 
 @router.put("/{work_shift_id}", response_model=WorkShiftRead)
-def update_work_shift_endpoint(work_shift_id: int, payload: WorkShiftUpdate, db: Session = Depends(get_db)):
+def update_work_shift_endpoint(
+    work_shift_id: int,
+    payload: WorkShiftUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Update work shift details, including scheduled time, actual time, and status."""
-    work_shift = get_work_shift(db, work_shift_id)
+    work_shift = get_work_shift(db, current_user.id, work_shift_id)
     if work_shift is None:
         raise HTTPException(status_code=404, detail="WorkShift not found")
     return update_work_shift(db, work_shift, payload)
 
 
 @router.delete("/{work_shift_id}")
-def delete_work_shift_endpoint(work_shift_id: int, db: Session = Depends(get_db)):
+def delete_work_shift_endpoint(
+    work_shift_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Delete a work shift and any related records."""
-    work_shift = get_work_shift(db, work_shift_id)
+    work_shift = get_work_shift(db, current_user.id, work_shift_id)
     if work_shift is None:
         raise HTTPException(status_code=404, detail="WorkShift not found")
     delete_work_shift(db, work_shift)
@@ -69,15 +91,19 @@ def delete_work_shift_endpoint(work_shift_id: int, db: Session = Depends(get_db)
 
 @router.put("/{work_shift_id}/extras", response_model=WorkShiftRead)
 def update_work_shift_extras(
-    work_shift_id: int, payload: WorkShiftExtrasUpdate, db: Session = Depends(get_db)
+    work_shift_id: int,
+    payload: WorkShiftExtrasUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Đồng bộ trạng thái + số giờ NPC/OT + số lần EXTEND của ca trong 1 transaction (upsert)."""
-    work_shift = get_work_shift(db, work_shift_id)
+    work_shift = get_work_shift(db, current_user.id, work_shift_id)
     if work_shift is None:
         raise HTTPException(status_code=404, detail="WorkShift not found")
     sync_work_shift_extras(
         db,
         work_shift,
+        user_id=current_user.id,
         status=payload.status,
         quantities={
             "NPC": payload.npc_hours if payload.npc_hours is not None else 0.0,
