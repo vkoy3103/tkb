@@ -539,6 +539,7 @@ return (
         isOpen={!!makeupTarget}
         onClose={() => setMakeupTarget(null)}
         onSave={handleSaveMakeup}
+        onDelete={handleDeleteOverride}
         schedule={makeupTarget.schedule}
         overrideToEdit={makeupTarget.overrideToEdit}
         subjects={subjects}

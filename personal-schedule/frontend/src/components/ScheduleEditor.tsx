@@ -13,6 +13,7 @@ interface ScheduleModalProps {
   submitVariant?: 'primary' | 'danger'
   showDeleteButton?: boolean
   onDelete?: () => void
+  deleteLabel?: string
   modalClassName?: string
 }
 
@@ -28,6 +29,7 @@ export function ScheduleModal({
   submitVariant = 'primary',
   showDeleteButton = false,
   onDelete,
+  deleteLabel = '🗑️ Xóa',
   modalClassName,
 }: ScheduleModalProps) {
   if (!isOpen) return null
@@ -59,7 +61,7 @@ export function ScheduleModal({
                   onClick={onDelete}
                   disabled={isLoading}
                 >
-                  🗑️ Xóa
+                  {deleteLabel}
                 </button>
             )}
             <div style={{ flex: 1 }} />

@@ -6,7 +6,9 @@ import {
   ScheduleToast,
   FormSelect,
   FormTextarea,
+  FormGroup,
 } from './ScheduleEditor'
+import { CalendarPicker } from './CalendarPicker'
 import type { Schedule, ScheduleOverride, Subject, Period } from '../types'
 
 interface MakeupSchedulerProps {
@@ -15,6 +17,7 @@ interface MakeupSchedulerProps {
   overrideToEdit?: ScheduleOverride
   onClose: () => void
   onSave: (data: Partial<ScheduleOverride>) => Promise<void>
+  onDelete?: (overrideId: number) => Promise<void>
   subjects: Subject[]
   periods: Period[]
   isLoading?: boolean
@@ -44,6 +47,7 @@ export function MakeupScheduler({
   overrideToEdit,
   onClose,
   onSave,
+  onDelete,
   subjects,
   periods,
   isLoading = false,
@@ -118,11 +122,37 @@ export function MakeupScheduler({
     }
   }
 
+  const handleDelete = async () => {
+    if (!overrideToEdit || !onDelete) return
+    try {
+      await onDelete(overrideToEdit.id)
+      setToast({ message: 'Đã xóa lịch học bù!', type: 'success' })
+      setTimeout(() => {
+        onClose()
+        setToast(null)
+      }, 1000)
+    } catch (error) {
+      setToast({
+        message: `Lỗi: ${(error as Error).message}`,
+        type: 'error',
+      })
+    }
+  }
+
   if (!isOpen && !toast) {
     return null
   }
 
   const subject = subjects.find((s) => s.id === schedule?.subject_id)
+
+  // Ngày học bù không được chọn trong quá khứ (tính theo giờ địa phương)
+  const todayKey = (() => {
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = String(now.getMonth() + 1).padStart(2, '0')
+    const d = String(now.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  })()
 
   return (
     <>
@@ -133,16 +163,18 @@ export function MakeupScheduler({
         onSubmit={handleSubmit}
         isLoading={isLoading}
         submitLabel="Lưu học bù"
+        showDeleteButton={!!overrideToEdit && !!onDelete}
+        onDelete={handleDelete}
+        deleteLabel="🗑️ Xóa lịch học bù"
       >
         <FormRow>
-          <FormInput
-            label="Ngày học bù"
-            type="date"
-            required
-            value={formData.new_date || ''}
-            onChange={(e) => setFormData({ ...formData, new_date: e.target.value })}
-            error={errors.new_date}
-          />
+          <FormGroup label="Ngày học bù" required error={errors.new_date}>
+            <CalendarPicker
+              value={formData.new_date || null}
+              onChange={(date) => setFormData({ ...formData, new_date: date })}
+              minDate={todayKey}
+            />
+          </FormGroup>
           <FormInput
             label="Phòng học mới"
             value={formData.new_room || ''}

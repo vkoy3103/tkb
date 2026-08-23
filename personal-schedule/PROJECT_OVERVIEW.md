@@ -207,7 +207,8 @@ Sidebar gồm: 📊 Dashboard, 📅 Schedule, 📚 Subjects, 💼 Work, 📈 Sta
 | `timetable/TimeColumn.tsx` | Cột khung giờ các tiết |
 | `ScheduleEditor.tsx` | Modal thêm/sửa lịch học (form, toast, validate) |
 | `InlineScheduleEditor.tsx` | Form nhập lịch nhanh ngay trên trang |
-| `MakeupScheduler.tsx` | Modal lên lịch dạy bù |
+| `MakeupScheduler.tsx` | Modal lên lịch dạy bù (dùng `CalendarPicker` để bấm chọn ngày học bù thay vì nhập tay; `minDate` = hôm nay). Khi bấm vào 1 lịch học bù có sẵn → mở chế độ chỉnh sửa kèm nút "🗑️ Xóa lịch học bù" (xóa qua `onDelete`) |
+| `CalendarPicker.tsx` | Mini-calendar chọn ngày (điều hướng tháng, đánh dấu hôm nay/ngày đã chọn, disable ngày quá khứ qua `minDate`/`maxDate`). Style trong `styles/calendar-picker.css` |
 | `pages/WorkShiftEditor.tsx` | Modal thêm/sửa ca làm |
 
 ### 4.4 Services (API calls) — `src/services/`
