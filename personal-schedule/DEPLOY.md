@@ -132,11 +132,14 @@ git remote add origin https://github.com/<tenban>/personal-schedule.git
 git push -u origin main
 ```
 
+> ⚠️ **QUAN TRỌNG — requirements.txt phải ở gốc dự án**: Render tự chạy `pip install -r requirements.txt`, nhưng chỉ tìm file này ở **gốc** (cạnh frontend/backend). Vì vậy repo đã có **bản sao `requirements.txt` ở gốc** (nội dung giống `backend/requirements.txt`) — nếu sửa file trong `backend/requirements.txt`, nhớ **copy sang `requirements.txt` ở gốc** luôn.
+
 ### Bước 3 — Tạo Web Service trên Render
 1. Vào https://dashboard.render.com → **New +** → **Web Service** → connect repo GitHub.
 2. Cấu hình:
    - **Name**: `personal-schedule`
    - **Environment**: `Python 3`
+   - **Root Directory**: `personal-schedule` *(nếu repo của bạn chứa dự án trong thư mục con này)*
    - **Build Command**: `cd frontend && npm install && npm run build`
    - **Start Command**: `cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
    - Chọn plan **Free**
