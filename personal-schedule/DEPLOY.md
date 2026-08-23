@@ -44,9 +44,13 @@ DATABASE_URL=postgresql://postgres:123456@127.0.0.1:5433/myproject uvicorn app.m
 
 ---
 
-## 🏆 Lựa chọn 1: PythonAnywhere (khuyên dùng — miễn phí vĩnh viễn, SQLite bền)
+## 🏆 Lựa chọn 1: Render + Neon PostgreSQL — ⭐ KHUYÊN DÙNG (vì app đã chạy PostgreSQL, miễn phí, dữ liệu bền)
 
-**Ưu điểm**: Free tier dữ liệu **lưu vĩnh viễn** (phù hợp SQLite), không cần thẻ tín dụng, HTTPS sẵn có, URL dạng `https://tenban.pythonanywhere.com`.
+Vì app của bạn **đã chuyển sang PostgreSQL**, đây là cách phù hợp nhất (miễn phí):
+- **Render** free tier tự build từ GitHub, không cần thẻ tín dụng.
+- **Neon** cấp PostgreSQL miễn phí (0.5GB) → dữ liệu **bền vững**, không mất khi restart/redeploy.
+
+> ⚠️ **Không dùng PythonAnywhere**: free tier của PythonAnywhere chỉ hỗ trợ SQLite; PostgreSQL trên PythonAnywhere là gói **trả phí**. Vì app đã dùng Postgres, hãy dùng Render + Neon.
 
 ### Bước 1 — Chuẩn bị local
 ```bash
@@ -84,24 +88,97 @@ cd ..
 
 ---
 
-## 🥈 Lựa chọn 2: Render (tự động từ GitHub, miễn phí có giới hạn)
+## 🥈 Lựa chọn 2: PythonAnywhere — chỉ khi muốn SQLite / chấp nhận trả phí Postgres
 
-**Ưu điểm**: đẩy lên GitHub là Render tự build, không cần upload thủ công.
-**Nhược điểm**: Free tier **không có persistent disk** → SQLite bị **mất khi restart/redeploy**. Chỉ dùng khi chấp nhận dữ liệu thử nghiệm, hoặc nâng cấp trả phí để thêm disk.
+**Miễn phí thì chỉ có SQLite** (free tier không hỗ trợ PostgreSQL). Vì app đã dùng Postgres nên:
+- Hoặc **trả phí** trên PythonAnywhere để có Postgres.
+- Hoặc chuyển app về SQLite (không khuyến khích — dữ liệu bạn đang ở Postgres).
 
-1. Push repo lên GitHub.
-2. Tạo **New Web Service** tại https://dashboard.render.com → connect GitHub repo.
-3. Cấu hình:
+Nếu bạn vẫn muốn dùng PythonAnywhere (chỉ mình dùng, chấp nhận SQLite mới):
+1. Build frontend + zip project (bỏ node_modules, .venv) thành `personal-schedule.zip`.
+2. Đăng ký https://www.pythonanywhere.com → **Files** → upload zip → giải nén.
+3. **Consoles** → Bash:
+   ```bash
+   cd ~/personal-schedule
+   python3 -m venv .venv && source .venv/bin/activate
+   pip install -r backend/requirements.txt
+   ```
+4. **Web** → Add web app → Manual configuration → Python 3.10/3.11, Source=`/home/<ten>/personal-schedule`, Virtualenv=`.venv`.
+5. Sửa **WSGI configuration file** thành:
+   ```python
+   import sys
+   sys.path.insert(0, '/home/<ten>/personal-schedule/backend')
+   from wsgi import application
+   ```
+6. Bấm **Reload** → mở `https://<ten>.pythonanywhere.com` 🎉
+
+### Bước 1 — Tạo PostgreSQL miễn phí trên Neon
+1. Vào https://neon.tech → đăng ký (GitHub/Google).
+2. Tạo project mới (region gần Việt Nam: **Singapore**).
+3. Lấy **Connection string** dạng:
+   ```
+   postgresql://user:pass@ep-xxx.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+   ```
+   (Đây sẽ là `DATABASE_URL`)
+
+### Bước 2 — Push code lên GitHub
+```bash
+cd /d/code/tkb/personal-schedule
+git init
+git add .
+git commit -m "deploy"
+git branch -M main
+git remote add origin https://github.com/<tenban>/personal-schedule.git
+git push -u origin main
+```
+
+### Bước 3 — Tạo Web Service trên Render
+1. Vào https://dashboard.render.com → **New +** → **Web Service** → connect repo GitHub.
+2. Cấu hình:
+   - **Name**: `personal-schedule`
+   - **Environment**: `Python 3`
    - **Build Command**: `cd frontend && npm install && npm run build`
    - **Start Command**: `cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-   - **Environment** (nếu cần): `FRONTEND_DIST_DIR=/opt/render/project/src/frontend/dist`
-4. Deploy → Render cấp URL `https://<ten>.onrender.com`.
+   - Chọn plan **Free**
+3. Phần **Environment Variables** thêm:
+   | Key | Value |
+   |---|---|
+   | `DATABASE_URL` | Connection string Neon ở Bước 1 |
+   | `SECRET_KEY` | Một chuỗi bí mật dài (vd `openssl rand -hex 32`). Quan trọng để JWT an toàn |
+   | `CORS_ORIGINS` | `https://<ten>.onrender.com` (hoặc để trống cũng được vì frontend/backend cùng origin) |
+4. Bấm **Create Web Service** → Render tự build + deploy.
+5. Mở URL `https://<ten>.onrender.com` 🎉
+
+> ⚠️ **Lưu ý free tier**: Render free web service sẽ **sleep** sau ~15 phút không truy cập; lần mở đầu sau khi sleep sẽ chậm vài giây. Đây là đặc điểm free, chấp nhận được.
+
+### (Tùy chọn) Cấu hình database ngay lần đầu
+Sau khi deploy xong, mở `https://<ten>.onrender.com` → đăng ký tài khoản đầu tiên → app tự tạo bảng + dữ liệu mặc định cho bạn (startup tự `create_all` + seed admin + periods).
 
 ---
 
-## 🥉 Lựa chọn 3: Railway / Fly.io (free allowance, có disk bền)
+## 🥉 Lựa chọn 3: Docker (bất kỳ host nào có Docker — VPS, Railway, Fly.io...)
 
-- **Railway**: dùng volume bền (persistent volume) gắn vào `/backend/data` để giữ SQLite; start = `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+Dự án có sẵn `Dockerfile` (multi-stage: tự build frontend rồi chạy backend) — chỉ cần:
+
+```bash
+# Build image
+cd /d/code/tkb/personal-schedule
+docker build -t personal-schedule .
+
+# Chạy (SQLite mặc định — dữ liệu trong volume backend-data)
+docker run -p 8000:8000 -v personal-data:/app/backend/data personal-schedule
+
+# Hoặc chạy với PostgreSQL: set DATABASE_URL
+docker run -p 8000:8000 -e DATABASE_URL=postgresql://user:pass@host:5432/db personal-schedule
+```
+
+> ⚠️ Nếu dùng SQLite, nhớ mount volume vào `/app/backend/data` để dữ liệu không mất khi container restart.
+
+---
+
+## 🏅 Lựa chọn 4: Railway / Fly.io (free allowance, có disk bền)
+
+- **Railway**: dùng volume bền (persistent volume) gắn vào `/backend/data` để giữ SQLite; start = `cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
 - **Fly.io**: tạo volume, mount vào đường dẫn chứa `backend/data`, start bằng uvicorn. Có allowance miễn phí hàng tháng.
 
 ---

@@ -12,7 +12,9 @@ SQLITE_PATH = DATA_DIR / "schedule.db"
 # Mặc định dùng SQLite (dev local, không cần cấu hình).
 # Muốn chạy trên PostgreSQL: set biến môi trường DATABASE_URL, ví dụ:
 #   DATABASE_URL=postgresql://postgres:123456@localhost:5432/myproject
-DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{SQLITE_PATH}")
+DATABASE_URL = os.environ.get("DATABASE_URL") or ""
+if not DATABASE_URL.strip():
+    DATABASE_URL = f"sqlite:///{SQLITE_PATH}"
 
 IS_SQLITE = DATABASE_URL.startswith("sqlite")
 

@@ -132,12 +132,8 @@ export default function Login() {
           <button type="submit" className="auth-submit" disabled={loading}>
             {loading ? 'Đang xử lý...' : mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}
           </button>
-
-          {mode === 'login' && (
-            <p className="auth-hint">Tài khoản admin mặc định: admin@example.com / admin123</p>
-          )}
         </form>
       </div>
     </div>
   )
-}
+} 
