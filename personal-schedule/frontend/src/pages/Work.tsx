@@ -3,6 +3,7 @@ import { WorkShiftEditor } from './WorkShiftEditor'
 import { WorkExtraEditor } from '../components/WorkExtraEditor'
 import { WeekShiftScheduler } from '../components/WeekShiftScheduler'
 import { ShiftMoneyEditor } from '../components/ShiftMoneyEditor'
+import { WorkQuickImportScheduler } from '../components/WorkQuickImportScheduler'
 import type { WeekShiftDraft } from '../components/WeekShiftScheduler'
 import {
   createWorkShift,
@@ -86,6 +87,9 @@ export default function WorkPage() {
 
   // Week scheduler state
   const [isWeekModalOpen, setIsWeekModalOpen] = useState(false)
+
+  // Quick import state
+  const [isQuickImportOpen, setIsQuickImportOpen] = useState(false)
 
   const load = async () => {
     const [shiftData, extraData, typeData, settingData] = await Promise.all([
@@ -377,6 +381,9 @@ export default function WorkPage() {
           </div>
         </div>
         <div className="pg-header__actions">
+          <button type="button" onClick={() => setIsQuickImportOpen(true)} className="pg-btn pg-btn--primary">
+            ⚡ Dán nhanh ca làm
+          </button>
           <button type="button" onClick={() => setIsWeekModalOpen(true)} className="pg-btn pg-btn--success">
             🗓️ Thêm ca theo tuần
           </button>
@@ -620,6 +627,12 @@ export default function WorkPage() {
         onClose={() => setIsWeekModalOpen(false)}
         onSave={handleSaveWeekShifts}
         isLoading={saving}
+      />
+
+      <WorkQuickImportScheduler
+        isOpen={isQuickImportOpen}
+        onClose={() => setIsQuickImportOpen(false)}
+        onDone={load}
       />
 
       <ShiftMoneyEditor

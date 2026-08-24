@@ -2,6 +2,8 @@ cd backend
 source .venv/Scripts/activate
 DATABASE_URL=postgresql://postgres:123456@127.0.0.1:5433/myproject uvicorn app.main:app --host 127.0.0.1 --port 8000
 
+#   - pgAdmin : http://127.0.0.1:5050   (admin@example.com / admin)
+
 # Personal Schedule Manager — Tài liệu tổng quan dự án
 
 > Tài liệu mô tả toàn bộ cấu trúc, công nghệ, dữ liệu và cách chạy của dự án **Personal Schedule Manager** (ứng dụng quản lý thời khóa biểu, ca làm việc và thu nhập cá nhân).

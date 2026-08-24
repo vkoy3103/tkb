@@ -79,6 +79,33 @@
   background: #fff;
 }
 
+.quick-import__name-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.quick-import__name-input {
+  flex: 1;
+  max-width: 320px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: #1e293b;
+  background: #fff;
+}
+
+.quick-import__name-input:focus {
+  outline: none;
+  border-color: #818cf8;
+  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2);
+}
+
 .quick-import__textarea:focus {
   outline: none;
   border-color: #818cf8;
