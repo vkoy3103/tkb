@@ -226,6 +226,48 @@
   border-radius: 4px;
 }
 
+/* =========================
+   RESPONSIVE — ĐIỆN THOẠI (mobile)
+========================= */
+@media (max-width: 768px) {
+  .schedule-modal.quick-import {
+    max-width: 100vw;
+    width: 100vw;
+    max-height: 94vh;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .schedule-modal-backdrop {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .quick-import__hint,
+  .quick-import__format {
+    font-size: 11px;
+  }
+
+  .quick-import__toolbar {
+    flex-direction: column;
+  }
+
+  .quick-import__toolbar .pg-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .quick-import__name-label {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .quick-import__name-input {
+    max-width: none;
+    width: 100%;
+  }
+}
+
 .quick-import__remove:hover {
   background: #fef2f2;
 }

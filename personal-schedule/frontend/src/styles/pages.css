@@ -673,3 +673,108 @@
 .pg-search .pg-input {
   padding-left: 2.3rem;
 }
+
+/* =========================
+   RESPONSIVE — ĐIỆN THOẠI (mobile)
+========================= */
+@media (max-width: 768px) {
+  .pg-header {
+    padding: 1rem;
+    border-radius: 1.1rem;
+    gap: 0.7rem;
+  }
+
+  .pg-header__icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 1.15rem;
+    border-radius: 0.8rem;
+  }
+
+  .pg-header__title {
+    font-size: 1.2rem;
+  }
+
+  .pg-header__subtitle {
+    font-size: 0.76rem;
+  }
+
+  .pg-header__actions {
+    width: 100%;
+  }
+
+  .pg-header__actions .pg-btn {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  .pg-page {
+    gap: 0.9rem;
+  }
+
+  .pg-card {
+    padding: 1rem;
+    border-radius: 1.1rem;
+  }
+
+  .pg-stat {
+    padding: 0.9rem 1rem;
+  }
+
+  .pg-stat__label {
+    font-size: 0.62rem;
+  }
+
+  .pg-stat__icon {
+    width: 1.7rem;
+    height: 1.7rem;
+    font-size: 0.85rem;
+  }
+
+  /* Bảng ca làm (Work): kéo ngang là chính, cột ngày gọn lại */
+  .pg-month-table table {
+    min-width: 500px;
+  }
+
+  .pg-month-th {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.64rem;
+  }
+
+  .pg-month-td {
+    padding: 0.3rem 0.45rem;
+  }
+
+  .pg-month-day {
+    min-width: 84px;
+  }
+
+  .pg-month-cell__main {
+    padding: 0.25rem 0.4rem;
+  }
+
+  .pg-month-cell__money {
+    font-size: 0.72rem;
+  }
+
+  .pg-month-cell__actions button {
+    padding: 0.2rem 0.3rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .pg-header__actions {
+    flex-direction: column;
+  }
+
+  .pg-header__actions .pg-btn {
+    width: 100%;
+  }
+
+  .pg-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.7rem;
+  }
+}
