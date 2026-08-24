@@ -5,7 +5,7 @@ import { TimeColumn } from './TimeColumn'
 import type { Period, Schedule, ScheduleOverride, SettingsEntry, Subject, WorkExtra, WorkShift } from '../../types'
 import { settingsToRates } from '../../utils/salary'
 import { calcShiftMoney, getOtStartMinutes } from '../../utils/workMoney'
-import { buildTimeSlots } from '../../utils/timeUtils'
+import { buildTimeSlots, minutesToTime, timeToMinutes } from '../../utils/timeUtils'
 import { getStudyWeek, getSubjectEffectiveWeekRange, isRangeActiveInWeek, isScheduleInWeek } from '../../utils/studyWeek'
 import '../../styles/timetable.css'
 
@@ -93,6 +93,12 @@ function formatDateKey(date: Date) {
   const m = String(vietnamDate.getMonth() + 1).padStart(2, '0')
   const d = String(vietnamDate.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
+}
+
+// "2026-08-17" -> "17/08" cho panel cảnh báo
+function formatDayLabel(dateKey: string) {
+  const [, m, d] = dateKey.split('-')
+  return `${d}/${m}`
 }
 
 type TimetableProps = {
@@ -242,6 +248,123 @@ export function Timetable({
     return buildTimeSlots(extraTimes, scheduleMode)
   }, [workShifts, schedules, scheduleMode])
 
+  // ----- Phát hiện xung đột (lịch đè lên nhau) -----
+  // Quy đổi tiết học → giờ theo periods (dùng chung cho cả PERIOD và TIME)
+  const periodsByNumber = useMemo(() => {
+    const map = new Map<number, { start: number; end: number }>()
+    periods.forEach((p) => {
+      map.set(p.period_number, {
+        start: timeToMinutes(p.start_time),
+        end: timeToMinutes(p.end_time),
+      })
+    })
+    return map
+  }, [periods])
+
+  // Map lịch cố định (Schedule) sang dạng có id chuẩn để so khớp với DayColumn
+  const fixedSchedules = useMemo(
+    () => schedules.filter((item) => isScheduleVisible(item)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [schedules, studyWeek],
+  )
+
+  interface ConflictInfo {
+    key: string // `${date}::${id}` để DayColumn tô đỏ
+    date: string
+    start: number
+    end: number
+    label: string
+    sub: string
+  }
+
+  // Kết quả: các key bị đè (để tô đỏ) + cặp xung đột (để hiện panel)
+  const conflicts = useMemo(() => {
+    const redKeys = new Set<string>()
+    const all: ConflictInfo[] = []
+
+    // Lấy khoảng giờ (phút) của 1 sự kiện để so xung đột
+    const getRange = (ev: TimetableSchedule | Schedule): { start: number; end: number } | null => {
+      // Ca làm: note đang chứa "scheduled_start-scheduled_end"
+      if ('_isWork' in ev && ev._isWork && ev.note) {
+        const [s, e] = ev.note.split('-')
+        if (s && e) return { start: timeToMinutes(s), end: timeToMinutes(e) }
+      }
+      // Lịch theo giờ trực tiếp
+      const startTime = 'start_time' in ev ? ev.start_time : undefined
+      const endTime = 'end_time' in ev ? ev.end_time : undefined
+      if (startTime && endTime) {
+        return { start: timeToMinutes(startTime), end: timeToMinutes(endTime) }
+      }
+      // Lịch theo tiết
+      const startPeriod = 'start_period' in ev ? ev.start_period : undefined
+      const endPeriod = 'end_period' in ev ? ev.end_period : undefined
+      const sp = startPeriod != null ? periodsByNumber.get(Number(startPeriod)) : undefined
+      const ep = endPeriod != null ? periodsByNumber.get(Number(endPeriod)) : undefined
+      if (sp && ep) return { start: sp.start, end: ep.end }
+      return null
+    }
+
+    const pushEvent = (info: ConflictInfo) => all.push(info)
+
+    weekDates.forEach((date, index) => {
+      const iso = formatDateKey(date)
+      const weekday = index + 2
+
+      // Lịch cố định của ngày (theo weekday)
+      fixedSchedules
+        .filter((item) => item.weekday === weekday)
+        .forEach((item) => {
+          const range = getRange(item)
+          if (!range) return
+          const subject = subjectsById.get(item.subject_id)
+          pushEvent({
+            key: `${iso}::${item.id}`,
+            date: iso,
+            ...range,
+            label: subject?.name ?? 'Môn học',
+            sub: subject?.code ?? '',
+          })
+        })
+
+      // Học bù + ca làm (sự kiện 1 ngày)
+      ;[...makeupSchedules, ...workEvents]
+        .filter((ev) => ev.date === iso)
+        .forEach((ev) => {
+          const range = getRange(ev)
+          if (!range) return
+          const subject = ev.subject_id ? subjectsById.get(ev.subject_id) : undefined
+          pushEvent({
+            key: `${iso}::${ev.id}`,
+            date: iso,
+            ...range,
+            label: ev._isWork
+              ? `Ca làm ${ev.shift_type ?? ''}`
+              : `${subject?.name ?? 'Môn học'} (học bù)`,
+            sub: ev._isWork ? (ev._baseNote ?? '') : '',
+          })
+        })
+    })
+
+    // Tìm cặp trùng: startA < endB && startB < endA (có chồng lấn)
+    const pairs: { a: ConflictInfo; b: ConflictInfo }[] = []
+    all.forEach((a, i) => {
+      for (let j = i + 1; j < all.length; j++) {
+        const b = all[j]
+        if (a.date !== b.date) continue
+        if (a.start < b.end && b.start < a.end) {
+          redKeys.add(a.key)
+          redKeys.add(b.key)
+          pairs.push({ a, b })
+        }
+      }
+    })
+
+    return { redKeys, pairs }
+  }, [weekDates, fixedSchedules, makeupSchedules, workEvents, subjectsById, periodsByNumber])
+
+  const conflictPairs = conflicts.pairs
+  const conflictRedKeys = conflicts.redKeys
+
   return (
     <div className="timetable-shell">
       <div className="timetable-toolbar">
@@ -265,6 +388,32 @@ export function Timetable({
           </button>
         </div>
       </div>
+
+      {conflictPairs.length > 0 && (
+        <div className="timetable-conflict-panel">
+          <div className="timetable-conflict-panel__header">
+            <span className="timetable-conflict-panel__title">⚠️ Lịch bị trùng giờ ({conflictPairs.length})</span>
+            <span className="timetable-conflict-panel__hint">Các ô đỏ trên lịch là những lịch đang đè lên nhau.</span>
+          </div>
+          <div className="timetable-conflict-panel__list">
+            {conflictPairs.map(({ a, b }, i) => (
+              <div key={i} className="timetable-conflict-panel__item">
+                <span className="timetable-conflict-panel__day">
+                  {formatDayLabel(a.date)}
+                </span>
+                <span className="timetable-conflict-panel__time">
+                  {minutesToTime(a.start)} – {minutesToTime(Math.max(a.end, b.end))}
+                </span>
+                <span className="timetable-conflict-panel__names">
+                  <span className="timetable-conflict-panel__name">{a.label}</span>
+                  <span className="timetable-conflict-panel__sep">↔</span>
+                  <span className="timetable-conflict-panel__name">{b.label}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="timetable-layout">
         <SubjectSidebar
@@ -316,6 +465,7 @@ export function Timetable({
                       subjects={subjects}
                       periods={periods}
                       timeSlots={timeSlots}
+                      conflictKeys={conflictRedKeys}
                       scheduleOverrides={scheduleOverrides}
                       onScheduleClick={onScheduleClick}
                       onScheduleContextMenu={onScheduleContextMenu}

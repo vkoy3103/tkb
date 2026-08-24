@@ -46,6 +46,7 @@ type DayColumnProps = {
     end_time: string
   }[]
   timeSlots?: string[]
+  conflictKeys?: Set<string>
   scheduleOverrides?: ScheduleOverride[]
   onCancel?: (schedule: TimetableSchedule, date: string) => void
   onScheduleClick?: (schedule: TimetableSchedule, date: string) => void
@@ -58,6 +59,7 @@ export function DayColumn({
   subjects = [],
   periods = [],
   timeSlots = TIME_SLOTS,
+  conflictKeys,
   scheduleOverrides = [],
   onScheduleClick,
   onScheduleContextMenu,
@@ -139,6 +141,9 @@ export function DayColumn({
           const isMakeup =
             '_isMakeup' in schedule && Boolean(schedule._isMakeup)
 
+          const isConflict =
+            conflictKeys?.has(`${date}::${schedule.id}`) ?? false
+
           /*
            * Quan trọng:
            * cancel phải kiểm tra cả class_schedule_id và date.
@@ -155,7 +160,7 @@ export function DayColumn({
           return (
             <div
               key={`${schedule.id}-${date}`}
-              className={`timetable-lesson-block cursor-pointer ${isWork ? 'timetable-lesson-block--work' : ''} ${isMakeup ? 'timetable-lesson-block--makeup' : ''} ${isCancelled ? 'timetable-lesson-block--cancelled' : ''} ${isCompact ? 'timetable-lesson-block--compact' : ''}`}
+              className={`timetable-lesson-block cursor-pointer ${isWork ? 'timetable-lesson-block--work' : ''} ${isMakeup ? 'timetable-lesson-block--makeup' : ''} ${isCancelled ? 'timetable-lesson-block--cancelled' : ''} ${isConflict ? 'timetable-lesson-block--conflict' : ''} ${isCompact ? 'timetable-lesson-block--compact' : ''}`}
               title={
                 isWork
                   ? `Ca làm${schedule.shift_type ? ` · ${schedule.shift_type}` : ''}\n${startTime} - ${endTime}${schedule._baseNote ? `\n${schedule._baseNote}` : ''}\n${schedule.status || ''}`
