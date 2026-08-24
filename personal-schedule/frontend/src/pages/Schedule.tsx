@@ -596,6 +596,7 @@ return (
           workShifts={workShifts}
           workExtras={workExtras}
           settings={settings}
+          scheduleMode={scheduleMode}
           onScheduleClick={handleScheduleClick}
           onScheduleContextMenu={handleScheduleContextMenu}
           onAddSchedule={handleAddNewSchedule}

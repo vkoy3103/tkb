@@ -641,8 +641,8 @@
 .timetable-lesson-block__meta--base {
   font-size: 0.55rem;
   font-weight: 700;
-  color: #7c3aed;
-  opacity: 1;
+  color: #334155;
+  opacity: 0.95;
 }
 
 .timetable-lesson-block--compact .timetable-lesson-block__money {

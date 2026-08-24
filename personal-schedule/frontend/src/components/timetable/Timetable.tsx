@@ -5,6 +5,7 @@ import { TimeColumn } from './TimeColumn'
 import type { Period, Schedule, ScheduleOverride, SettingsEntry, Subject, WorkExtra, WorkShift } from '../../types'
 import { settingsToRates } from '../../utils/salary'
 import { calcShiftMoney, getOtStartMinutes } from '../../utils/workMoney'
+import { buildTimeSlots } from '../../utils/timeUtils'
 import { getStudyWeek, getSubjectEffectiveWeekRange, isRangeActiveInWeek, isScheduleInWeek } from '../../utils/studyWeek'
 import '../../styles/timetable.css'
 
@@ -33,16 +34,17 @@ export type TimetableSchedule = {
   _baseColor?: { bg: string; border: string } | null
 }
 
-// Palette màu cho từng cơ sở — giúp dễ nhận biết ca làm ở cơ sở nào
+// Palette màu cho từng cơ sở — giúp dễ nhận biết ca làm ở cơ sở nào.
+// 2 cơ sở đầu được chọn tương phản rõ (tím ↔ cam) để dễ phân biệt nhất.
 const BASE_COLORS = [
-  { bg: '#f5f3ff', border: '#8b5cf6' }, // tím
-  { bg: '#eff6ff', border: '#3b82f6' }, // xanh dương
-  { bg: '#ecfdf5', border: '#10b981' }, // xanh lá
-  { bg: '#fff7ed', border: '#f97316' }, // cam
-  { bg: '#fdf2f8', border: '#ec4899' }, // hồng
-  { bg: '#fefce8', border: '#eab308' }, // vàng
-  { bg: '#f0fdfa', border: '#14b8a6' }, // teal
-  { bg: '#f5f3ff', border: '#a855f7' }, // tím nhạt
+  { bg: '#ede9fe', border: '#7c3aed' }, // tím
+  { bg: '#ffedd5', border: '#ea580c' }, // cam
+  { bg: '#dcfce7', border: '#16a34a' }, // xanh lá
+  { bg: '#dbeafe', border: '#2563eb' }, // xanh dương
+  { bg: '#fce7f3', border: '#db2777' }, // hồng
+  { bg: '#fef9c3', border: '#ca8a04' }, // vàng
+  { bg: '#ccfbf1', border: '#0d9488' }, // teal
+  { bg: '#f3e8ff', border: '#9333ea' }, // tím đậm
 ]
 
 /** Chọn màu theo tên cơ sở: "CƠ SỞ 1: ..." → màu index 0, "CƠ SỞ 2: ..." → index 1... */
@@ -101,6 +103,7 @@ type TimetableProps = {
   workShifts?: WorkShift[]
   workExtras?: WorkExtra[]
   settings?: SettingsEntry[]
+  scheduleMode?: 'PERIOD' | 'TIME'
   onScheduleClick?: (schedule: TimetableSchedule, date: string) => void
   onScheduleContextMenu?: (e: React.MouseEvent, schedule: TimetableSchedule, date: string) => void
   onAddSchedule?: () => void
@@ -118,6 +121,7 @@ export function Timetable({
   workShifts = [],
   workExtras = [],
   settings = [],
+  scheduleMode = 'TIME',
   onScheduleClick,
   onScheduleContextMenu,
   onAddSchedule,
@@ -221,6 +225,23 @@ export function Timetable({
     })
   }, [workShifts, workExtras, settings])
 
+  // Mốc giờ ĐỘNG: PERIOD mode giữ mốc :30 (từ tiết học) để lịch theo tiết khớp đúng vị trí;
+  // TIME mode dùng giờ tròn 07:00→22:00 + tự sinh hàng cho giờ lẻ (vd 13:15, 14:30...)
+  const timeSlots = useMemo(() => {
+    const extraTimes: string[] = []
+    workShifts.forEach((shift) => {
+      if (shift.scheduled_start) extraTimes.push(shift.scheduled_start)
+      if (shift.scheduled_end) extraTimes.push(shift.scheduled_end)
+      if (shift.actual_start) extraTimes.push(shift.actual_start)
+      if (shift.actual_end) extraTimes.push(shift.actual_end)
+    })
+    schedules.forEach((item) => {
+      if (item.start_time) extraTimes.push(item.start_time)
+      if (item.end_time) extraTimes.push(item.end_time)
+    })
+    return buildTimeSlots(extraTimes, scheduleMode)
+  }, [workShifts, schedules, scheduleMode])
+
   return (
     <div className="timetable-shell">
       <div className="timetable-toolbar">
@@ -276,7 +297,7 @@ export function Timetable({
               </div>
 
               <div className="timetable-body-row">
-                <TimeColumn />
+                <TimeColumn timeSlots={timeSlots} />
                 {weekDates.map((date, index) => {
                   const iso = formatDateKey(date)
                   const weekdayValue = index + 2
@@ -294,6 +315,7 @@ export function Timetable({
                       schedules={daySchedules}
                       subjects={subjects}
                       periods={periods}
+                      timeSlots={timeSlots}
                       scheduleOverrides={scheduleOverrides}
                       onScheduleClick={onScheduleClick}
                       onScheduleContextMenu={onScheduleContextMenu}

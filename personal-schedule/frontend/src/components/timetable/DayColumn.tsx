@@ -1,6 +1,5 @@
 import type { Subject } from '../../types'
 import { TIME_SLOTS, getTimeRow } from '../../utils/timeUtils'
-
 const formatVND = (value: number) => `${Math.round(value).toLocaleString('vi-VN')}đ`
 
 type TimetableSchedule = {
@@ -46,6 +45,7 @@ type DayColumnProps = {
     start_time: string
     end_time: string
   }[]
+  timeSlots?: string[]
   scheduleOverrides?: ScheduleOverride[]
   onCancel?: (schedule: TimetableSchedule, date: string) => void
   onScheduleClick?: (schedule: TimetableSchedule, date: string) => void
@@ -57,6 +57,7 @@ export function DayColumn({
   schedules = [],
   subjects = [],
   periods = [],
+  timeSlots = TIME_SLOTS,
   scheduleOverrides = [],
   onScheduleClick,
   onScheduleContextMenu,
@@ -66,10 +67,10 @@ export function DayColumn({
       <div
         className="timetable-day-grid"
         style={{
-          gridTemplateRows: `repeat(${TIME_SLOTS.length}, var(--timetable-row-height))`,
+          gridTemplateRows: `repeat(${timeSlots.length}, var(--timetable-row-height))`,
         }}
       >
-        {TIME_SLOTS.map((slot) => (
+        {timeSlots.map((slot) => (
           <div key={slot} className="timetable-grid-cell" />
         ))}
 
@@ -112,18 +113,21 @@ export function DayColumn({
 
           if (isWork || isTimeBased) {
             // Ca làm / lịch theo giờ -> dùng getTimeRow để định vị trên grid tiết học
-            startIndex = getTimeRow(startTime) - 1
-            endIndex = Math.max(getTimeRow(endTime) - 1, startIndex + 1)
+            startIndex = getTimeRow(startTime, timeSlots) - 1
+            endIndex = Math.max(getTimeRow(endTime, timeSlots) - 1, startIndex + 1)
           } else {
-            // Lịch học theo tiết -> khớp chính xác với TIME_SLOTS
+            // Lịch học theo tiết -> khớp chính xác với timeSlots (nếu có mốc),
+            // fallback getTimeRow khi không có mốc :30 trong grid
             const findClosestSlot = (time: string) => {
               const [h, m] = time.split(':').map(Number)
               const roundedM = m < 30 ? '00' : '30'
               return `${String(h).padStart(2, '0')}:${roundedM}`
             }
 
-            startIndex = TIME_SLOTS.findIndex((slot) => slot === findClosestSlot(startTime))
-            endIndex = TIME_SLOTS.findIndex((slot) => slot === endTime)
+            startIndex = timeSlots.findIndex((slot) => slot === findClosestSlot(startTime))
+            if (startIndex < 0) startIndex = getTimeRow(startTime, timeSlots) - 1
+            endIndex = timeSlots.findIndex((slot) => slot === endTime)
+            if (endIndex < 0) endIndex = Math.max(getTimeRow(endTime, timeSlots) - 1, startIndex + 1)
           }
 
           const span = Math.max(1, endIndex - startIndex)
