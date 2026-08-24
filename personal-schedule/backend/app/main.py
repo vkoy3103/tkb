@@ -101,6 +101,10 @@ def on_startup():
     except SQLAlchemyError:
         pass
     try:
+        _sync_sequences()
+    except SQLAlchemyError:
+        pass
+    try:
         ensure_admin_user()
     except SQLAlchemyError:
         pass
@@ -148,6 +152,42 @@ def _ensure_subject_week_columns():
             conn.execute(text("ALTER TABLE subjects ADD COLUMN week_start INTEGER"))
         if "week_end" not in columns:
             conn.execute(text("ALTER TABLE subjects ADD COLUMN week_end INTEGER"))
+
+
+def _sync_sequences():
+    """Đồng bộ lại sequence (auto-increment) về max(id)+1 cho mọi bảng có khóa chính tự tăng.
+
+    Chỉ cần cho PostgreSQL. Khi migrate dữ liệu từ SQLite/local sang Postgres (vd Neon),
+    sequence thường không được cập nhật theo dữ liệu có sẵn → INSERT bị lỗi
+    "duplicate key value violates unique constraint ..._pkey". Hàm này tự sửa khi startup.
+    """
+    if IS_SQLITE:
+        return
+    tables = [
+        "users",
+        "subjects",
+        "class_schedules",
+        "schedule_overrides",
+        "work_shifts",
+        "work_extras",
+        "work_extra_types",
+        "settings",
+        "periods",
+    ]
+    with engine.begin() as conn:
+        for table in tables:
+            try:
+                seq = conn.execute(
+                    text("SELECT pg_get_serial_sequence(:t, 'id')"), {"t": table}
+                ).scalar()
+                if not seq:
+                    continue
+                conn.execute(
+                    text(f"SELECT setval(:seq, COALESCE((SELECT MAX(id) FROM {table}), 0) + 1, false)"),
+                    {"seq": seq},
+                )
+            except SQLAlchemyError:
+                continue
 
 
 def _drop_legacy_unique_constraints():
