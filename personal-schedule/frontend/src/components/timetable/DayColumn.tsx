@@ -20,6 +20,8 @@ type TimetableSchedule = {
   shift_type?: string
   status?: string
   _amount?: number
+  _baseNote?: string | null
+  _baseColor?: { bg: string; border: string } | null
 }
 
 type ScheduleOverride = {
@@ -152,7 +154,7 @@ export function DayColumn({
               className={`timetable-lesson-block cursor-pointer ${isWork ? 'timetable-lesson-block--work' : ''} ${isMakeup ? 'timetable-lesson-block--makeup' : ''} ${isCancelled ? 'timetable-lesson-block--cancelled' : ''} ${isCompact ? 'timetable-lesson-block--compact' : ''}`}
               title={
                 isWork
-                  ? `Ca làm${schedule.shift_type ? ` · ${schedule.shift_type}` : ''}\n${startTime} - ${endTime}\n${schedule.status || ''}`
+                  ? `Ca làm${schedule.shift_type ? ` · ${schedule.shift_type}` : ''}\n${startTime} - ${endTime}${schedule._baseNote ? `\n${schedule._baseNote}` : ''}\n${schedule.status || ''}`
                   : `${subject?.name ?? 'Môn học'}${isMakeup ? ' (học bù)' : ''}\n${startTime} - ${endTime}\n${schedule.room || 'Không có phòng'}`
               }
               style={{
@@ -160,7 +162,7 @@ export function DayColumn({
                 background: isCancelled
                   ? '#fef2f2'
                   : isWork
-                    ? '#f5f3ff' // bg-violet-50
+                    ? schedule._baseColor?.bg ?? '#f5f3ff' // màu theo cơ sở (mặc định tím)
                     : isMakeup
                       ? '#ecfeff' // bg-cyan-50
                       : subject?.color
@@ -169,7 +171,7 @@ export function DayColumn({
                 borderColor: isCancelled
                   ? '#ef4444'
                   : isWork
-                    ? '#8b5cf6' // border-violet-500
+                    ? schedule._baseColor?.border ?? '#8b5cf6' // border theo cơ sở (mặc định tím)
                     : isMakeup
                       ? '#22c55e' // border-green-500
                       : subject?.color
@@ -210,6 +212,12 @@ export function DayColumn({
                   <div className="timetable-lesson-block__meta timetable-lesson-block__meta--time">
                     {startTime} - {endTime}
                   </div>
+
+                  {isWork && schedule._baseNote ? (
+                    <div className="timetable-lesson-block__meta timetable-lesson-block__meta--base">
+                      🏢 {schedule._baseNote}
+                    </div>
+                  ) : null}
 
                   {isWork && schedule._amount != null ? (
                     <div className="timetable-lesson-block__meta timetable-lesson-block__money">

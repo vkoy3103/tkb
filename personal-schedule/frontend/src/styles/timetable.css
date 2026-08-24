@@ -638,7 +638,18 @@
   opacity: 1;
 }
 
+.timetable-lesson-block__meta--base {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: #7c3aed;
+  opacity: 1;
+}
+
 .timetable-lesson-block--compact .timetable-lesson-block__money {
+  display: none;
+}
+
+.timetable-lesson-block--compact .timetable-lesson-block__meta--base {
   display: none;
 }
 

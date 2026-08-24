@@ -28,6 +28,35 @@ export type TimetableSchedule = {
   _amount?: number
   // Ngày cụ thể cho sự kiện 1 lần (ca làm / học bù), định dạng YYYY-MM-DD
   date?: string
+  // Note cơ sở của ca làm (vd "CƠ SỞ 1: 377 NGÔ QUYỀN") + màu phân biệt theo cơ sở
+  _baseNote?: string | null
+  _baseColor?: { bg: string; border: string } | null
+}
+
+// Palette màu cho từng cơ sở — giúp dễ nhận biết ca làm ở cơ sở nào
+const BASE_COLORS = [
+  { bg: '#f5f3ff', border: '#8b5cf6' }, // tím
+  { bg: '#eff6ff', border: '#3b82f6' }, // xanh dương
+  { bg: '#ecfdf5', border: '#10b981' }, // xanh lá
+  { bg: '#fff7ed', border: '#f97316' }, // cam
+  { bg: '#fdf2f8', border: '#ec4899' }, // hồng
+  { bg: '#fefce8', border: '#eab308' }, // vàng
+  { bg: '#f0fdfa', border: '#14b8a6' }, // teal
+  { bg: '#f5f3ff', border: '#a855f7' }, // tím nhạt
+]
+
+/** Chọn màu theo tên cơ sở: "CƠ SỞ 1: ..." → màu index 0, "CƠ SỞ 2: ..." → index 1... */
+function getBaseColor(note?: string | null): { bg: string; border: string } | null {
+  const key = note?.trim() || ''
+  if (!key) return null
+  const match = key.match(/cơ\s*sở\s*(\d+)/i)
+  if (match) {
+    return BASE_COLORS[(Number(match[1]) - 1) % BASE_COLORS.length]
+  }
+  // Cơ sở không có số — hash tên để ra màu ổn định
+  let hash = 0
+  for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0
+  return BASE_COLORS[hash % BASE_COLORS.length]
 }
 
 const dayNames = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật']
@@ -186,6 +215,8 @@ export function Timetable({
         date: shift.date,
         _isWork: true,
         _amount: money.total,
+        _baseNote: shift.note ?? null,
+        _baseColor: getBaseColor(shift.note),
       }
     })
   }, [workShifts, workExtras, settings])
