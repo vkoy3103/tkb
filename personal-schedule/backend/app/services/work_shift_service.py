@@ -99,7 +99,7 @@ def sync_work_shift_extras(
             .all()
         )
         if quantity > 0:
-            unit_price = resolve_unit_price(db, extra_type, None)
+            unit_price = resolve_unit_price(db, user_id, extra_type, None)
             amount = calculate_amount(quantity, unit_price, None)
             target = existing_rows[0] if existing_rows else None
             for row in existing_rows[1:]:

@@ -112,3 +112,29 @@ def update_work_shift_extras(
         },
     )
     return work_shift
+
+
+# Alias tương thích ngược: một số bản frontend cũ gọi PUT /{id}/edit thay vì /{id}/extras
+@router.put("/{work_shift_id}/edit", response_model=WorkShiftRead)
+def update_work_shift_edit_alias(
+    work_shift_id: int,
+    payload: WorkShiftExtrasUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """(Tương thích) Đồng bộ phụ thu + trạng thái ca — giống /extras."""
+    work_shift = get_work_shift(db, current_user.id, work_shift_id)
+    if work_shift is None:
+        raise HTTPException(status_code=404, detail="WorkShift not found")
+    sync_work_shift_extras(
+        db,
+        work_shift,
+        user_id=current_user.id,
+        status=payload.status,
+        quantities={
+            "NPC": payload.npc_hours if payload.npc_hours is not None else 0.0,
+            "OT": payload.ot_hours if payload.ot_hours is not None else 0.0,
+            "EXTEND": payload.extend_count if payload.extend_count is not None else 0.0,
+        },
+    )
+    return work_shift
