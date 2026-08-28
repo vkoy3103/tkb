@@ -114,6 +114,13 @@ type TimetableProps = {
   onScheduleContextMenu?: (e: React.MouseEvent, schedule: TimetableSchedule, date: string) => void
   onAddSchedule?: () => void
   onAddWorkShiftWeek?: () => void
+  // Thêm ca làm vào ô lịch học đã bị nghỉ (date + giờ được điền sẵn)
+  onAddWorkShiftFromCancel?: (info: {
+    schedule: TimetableSchedule
+    date: string
+    start: string
+    end: string
+  }) => void
   onUpdateSubject?: (id: number, data: Partial<Subject>) => void | Promise<void>
   onDeleteSubject?: (id: number) => void | Promise<void>
   onUpdateSchedule?: (scheduleId: number, data: Partial<Schedule>) => void | Promise<void>
@@ -132,6 +139,7 @@ export function Timetable({
   onScheduleContextMenu,
   onAddSchedule,
   onAddWorkShiftWeek,
+  onAddWorkShiftFromCancel,
   onUpdateSubject,
   onDeleteSubject,
   onUpdateSchedule,
@@ -310,10 +318,17 @@ export function Timetable({
       const iso = formatDateKey(date)
       const weekday = index + 2
 
-      // Lịch cố định của ngày (theo weekday)
+      // Lịch cố định của ngày (theo weekday) — bỏ qua lịch đã nghỉ hôm đó
       fixedSchedules
         .filter((item) => item.weekday === weekday)
         .forEach((item) => {
+          const isCancelled = scheduleOverrides.some(
+            (o) =>
+              o.type === 'cancel' &&
+              Number(o.class_schedule_id) === Number(item.id) &&
+              o.date === iso,
+          )
+          if (isCancelled) return
           const range = getRange(item)
           if (!range) return
           const subject = subjectsById.get(item.subject_id)
@@ -360,7 +375,7 @@ export function Timetable({
     })
 
     return { redKeys, pairs }
-  }, [weekDates, fixedSchedules, makeupSchedules, workEvents, subjectsById, periodsByNumber])
+  }, [weekDates, fixedSchedules, makeupSchedules, workEvents, subjectsById, periodsByNumber, scheduleOverrides])
 
   const conflictPairs = conflicts.pairs
   const conflictRedKeys = conflicts.redKeys
@@ -469,6 +484,7 @@ export function Timetable({
                       scheduleOverrides={scheduleOverrides}
                       onScheduleClick={onScheduleClick}
                       onScheduleContextMenu={onScheduleContextMenu}
+                      onAddWorkShiftFromCancel={onAddWorkShiftFromCancel}
                     />
                   )
                 })}

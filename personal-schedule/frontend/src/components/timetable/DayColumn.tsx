@@ -51,6 +51,12 @@ type DayColumnProps = {
   onCancel?: (schedule: TimetableSchedule, date: string) => void
   onScheduleClick?: (schedule: TimetableSchedule, date: string) => void
   onScheduleContextMenu?: (e: React.MouseEvent, schedule: TimetableSchedule, date: string) => void
+  onAddWorkShiftFromCancel?: (info: {
+    schedule: TimetableSchedule
+    date: string
+    start: string
+    end: string
+  }) => void
 }
 
 export function DayColumn({
@@ -63,6 +69,7 @@ export function DayColumn({
   scheduleOverrides = [],
   onScheduleClick,
   onScheduleContextMenu,
+  onAddWorkShiftFromCancel,
 }: DayColumnProps) {
   return (
     <div className="timetable-day-column">
@@ -188,6 +195,11 @@ export function DayColumn({
                         : '#93c5fd', // border-blue-300
               }}
               onClick={() => {
+                // Môn đã nghỉ → bấm vào mở trực tiếp modal thêm ca làm
+                if (isCancelled && onAddWorkShiftFromCancel) {
+                  onAddWorkShiftFromCancel({ schedule, date, start: startTime, end: endTime })
+                  return
+                }
                 if (onScheduleClick) {
                   onScheduleClick(schedule, date)
                 }
@@ -209,6 +221,20 @@ export function DayColumn({
                   <div className="timetable-lesson-block__meta">
                     ❌ ĐÃ NGHỈ
                   </div>
+
+                  {onAddWorkShiftFromCancel && (
+                    <button
+                      type="button"
+                      className="timetable-cancel-addshift"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onAddWorkShiftFromCancel({ schedule, date, start: startTime, end: endTime })
+                      }}
+                      title="Thêm ca làm vào khung giờ môn bị nghỉ"
+                    >
+                      ➕ Thêm ca làm
+                    </button>
+                  )}
                 </>
               ) : (
                 <>

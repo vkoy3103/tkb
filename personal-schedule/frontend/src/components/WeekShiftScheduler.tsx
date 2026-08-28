@@ -6,8 +6,9 @@ import {
 } from './ScheduleEditor'
 import { fetchSchedules } from '../services/scheduleApi'
 import { fetchPeriods } from '../services/periodApi'
+import { fetchScheduleOverrides } from '../services/scheduleOverrideApi'
 import { fetchWorkShifts } from '../services/workShiftApi'
-import type { Period, Schedule, WorkShift } from '../types'
+import type { Period, Schedule, ScheduleOverride, WorkShift } from '../types'
 import '../styles/week-shift-scheduler.css'
 
 // 3 ca cố định mỗi ngày
@@ -80,6 +81,7 @@ export function WeekShiftScheduler({
   const [existingMap, setExistingMap] = useState<Record<string, WorkShift>>({})
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [periods, setPeriods] = useState<Period[]>([])
+  const [scheduleOverrides, setScheduleOverrides] = useState<ScheduleOverride[]>([])
   const [loadingData, setLoadingData] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -104,13 +106,15 @@ export function WeekShiftScheduler({
     const load = async () => {
       setLoadingData(true)
       try {
-        const [scheduleData, periodData, shiftData] = await Promise.all([
+        const [scheduleData, periodData, shiftData, overrideData] = await Promise.all([
           fetchSchedules(),
           fetchPeriods(),
           fetchWorkShifts(),
+          fetchScheduleOverrides(),
         ])
         setSchedules(scheduleData)
         setPeriods(periodData)
+        setScheduleOverrides(overrideData)
 
         // Khớp ca làm hiện có với ô (ngày + ca) trong tuần
         const startDate = new Date(`${weekStart}T00:00:00`)
@@ -145,12 +149,31 @@ export function WeekShiftScheduler({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, weekStart])
 
-  // Ma trận trùng lịch học: key `${weekday}-${slotIndex}` -> true nếu ca trùng giờ học
+  // Ma trận trùng lịch học: key `${weekday}-${slotIndex}` -> true nếu ca trùng giờ học.
+  // Nếu lịch học bị NGHỈ hôm đó (override type='cancel' đúng ngày) thì KHÔNG tính là trùng
+  // (môn đã nghỉ nên có thể đăng ký ca làm vào khung giờ đó).
   const conflictMap = useMemo(() => {
     const map: Record<string, boolean> = {}
+
+    // Ngày cụ thể của từng thứ trong tuần đang xem (để khớp override nghỉ theo ngày)
+    const dayDate = (weekday: number): string => {
+      const start = new Date(`${weekStart}T00:00:00`)
+      const d = new Date(start)
+      d.setDate(start.getDate() + (weekday - 2))
+      return formatYMD(d)
+    }
+
     for (const day of WEEKDAY_LABELS) {
+      const date = dayDate(day.weekday)
       const classRanges = schedules
-        .filter((s) => s.weekday === day.weekday)
+        .filter((s) => {
+          if (s.weekday !== day.weekday) return false
+          // Lịch bị nghỉ đúng hôm đó → bỏ qua (không chặn ca làm)
+          const cancelled = scheduleOverrides.some(
+            (o) => o.type === 'cancel' && Number(o.class_schedule_id) === Number(s.id) && o.date === date,
+          )
+          return !cancelled
+        })
         .map((s) => {
           const sp = periods.find((p) => p.period_number === s.start_period)
           const ep = periods.find((p) => p.period_number === s.end_period)
@@ -171,7 +194,7 @@ export function WeekShiftScheduler({
       })
     }
     return map
-  }, [schedules, periods])
+  }, [schedules, periods, scheduleOverrides, weekStart])
 
   const selectedCount = useMemo(() => Object.values(selected).filter(Boolean).length, [selected])
   const existingCount = useMemo(

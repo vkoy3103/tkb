@@ -514,6 +514,12 @@
   font-size: 0.82rem;
 }
 
+.pg-alert--success {
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
 /* ---------- Month shift table (Work) ---------- */
 .pg-month-table {
   overflow-x: auto;

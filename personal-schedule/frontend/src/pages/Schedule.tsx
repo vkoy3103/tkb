@@ -5,6 +5,7 @@ import { MakeupScheduler } from '../components/MakeupScheduler'
 import { InlineScheduleEditor } from '../components/InlineScheduleEditor'
 import { WeekShiftScheduler } from '../components/WeekShiftScheduler'
 import { ShiftMoneyEditor } from '../components/ShiftMoneyEditor'
+import { WorkShiftEditor } from './WorkShiftEditor'
 import type { WeekShiftDraft } from '../components/WeekShiftScheduler'
 import { useAuth } from '../context/AuthContext'
 import { fetchPeriods } from '../services/periodApi'
@@ -85,6 +86,9 @@ export default function SchedulePage() {
   const [settings, setSettings] = useState<SettingsEntry[]>([])
   const [moneyShift, setMoneyShift] = useState<WorkShift | null>(null)
   const [isWeekModalOpen, setIsWeekModalOpen] = useState(false)
+  // Thêm ca làm vào ô lịch bị nghỉ
+  const [shiftPreset, setShiftPreset] = useState<Partial<WorkShift> | undefined>(undefined)
+  const [isShiftModalOpen, setIsShiftModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const workExtraMap = useMemo(() => {
@@ -356,6 +360,34 @@ export default function SchedulePage() {
     setIsWeekModalOpen(true)
   }
 
+  // Bấm nút "➕ Thêm ca làm" trên ô lịch bị nghỉ → mở modal với ngày + giờ điền sẵn
+  const handleAddWorkShiftFromCancel = (info: {
+    schedule: TimetableSchedule
+    date: string
+    start: string
+    end: string
+  }) => {
+    setShiftPreset({
+      date: info.date,
+      scheduled_start: info.start,
+      scheduled_end: info.end,
+      shift_type: 'SHIFT 1',
+      status: 'scheduled',
+    })
+    setIsShiftModalOpen(true)
+  }
+
+  const handleSaveShiftFromCancel = async (data: Partial<WorkShift>) => {
+    setSaving(true)
+    try {
+      await createWorkShift(data)
+      await loadData()
+      setIsShiftModalOpen(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const loadData = async () => {
     try {
       setLoading(true)
@@ -575,6 +607,14 @@ return (
       isLoading={saving}
     />
 
+    <WorkShiftEditor
+      isOpen={isShiftModalOpen}
+      onClose={() => setIsShiftModalOpen(false)}
+      onSave={handleSaveShiftFromCancel}
+      preset={shiftPreset}
+      isLoading={saving}
+    />
+
     <ShiftMoneyEditor
       isOpen={!!moneyShift}
       shift={moneyShift}
@@ -601,6 +641,7 @@ return (
           onScheduleContextMenu={handleScheduleContextMenu}
           onAddSchedule={handleAddNewSchedule}
           onAddWorkShiftWeek={handleAddWorkShiftWeek}
+          onAddWorkShiftFromCancel={handleAddWorkShiftFromCancel}
           onUpdateSubject={handleUpdateSubject}
           onDeleteSubject={handleDeleteSubject}
           onUpdateSchedule={handleUpdateSchedule}

@@ -7,6 +7,7 @@ const links = [
   { path: '/schedule', label: '📅 Schedule' },
   { path: '/subjects', label: '📚 Subjects' },
   { path: '/work', label: '💼 Work' },
+  { path: '/cash-balance', label: '💰 Cash balance' },
   { path: '/settings', label: '⚙️ Settings' },
 ]
 

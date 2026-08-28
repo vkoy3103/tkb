@@ -6,6 +6,7 @@ import CalendarPage from './pages/Calendar'
 import Subjects from './pages/Subjects'
 import WorkPage from './pages/Work'
 import SettingsPage from './pages/Settings'
+import CashBalancePage from './pages/CashBalance'
 import Login from './pages/Login'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import './index.css'
@@ -73,6 +74,7 @@ export default function App() {
             <Route path="calendar" element={<CalendarPage />} />
             <Route path="subjects" element={<Subjects />} />
             <Route path="work" element={<WorkPage />} />
+            <Route path="cash-balance" element={<CashBalancePage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
