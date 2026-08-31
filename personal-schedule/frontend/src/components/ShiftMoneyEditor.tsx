@@ -23,12 +23,15 @@ interface ShiftMoneyEditorProps {
   onClose: () => void
   onSave: (
     shift: WorkShift,
-    values: { npcHours: number; otHours: number; extendCount: number },
+    values: { npcHours: number; otHours: number; extendCount: number; coefficient: number },
     status: string,
   ) => Promise<void>
   onDelete: (shift: WorkShift) => Promise<void>
   isLoading?: boolean
 }
+
+// Hệ số ca phổ biến (ca lễ x2, x1.5...)
+const COEFFICIENT_PRESETS = [1, 1.5, 2, 2.5, 3]
 
 function toMinutes(value?: string | null): number | null {
   if (!value) return null
@@ -119,6 +122,7 @@ export function ShiftMoneyEditor({
   const [npcHours, setNpcHours] = useState('')
   const [otHours, setOtHours] = useState('')
   const [extendCount, setExtendCount] = useState('')
+  const [coefficient, setCoefficient] = useState(1)
   const [status, setStatus] = useState('scheduled')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [toast, setToast] = useState<{
@@ -128,12 +132,23 @@ export function ShiftMoneyEditor({
 
   const rates = useMemo(() => settingsToRates(settings), [settings])
 
+  // Các lựa chọn hệ số: preset + giá trị hiện tại nếu không nằm trong preset
+  const coefficientOptions = useMemo(() => {
+    const opts = COEFFICIENT_PRESETS.map((v) => ({ value: v, label: `x${v}` }))
+    const current = Number(coefficient) || 1
+    if (!COEFFICIENT_PRESETS.includes(current)) {
+      opts.push({ value: current, label: `x${current}` })
+    }
+    return opts
+  }, [coefficient])
+
   useEffect(() => {
     if (!isOpen || !shift) return
     const qty = (code: string) => extras.find((e) => e.type === code)?.quantity ?? 0
     setNpcHours(String(qty('NPC')))
     setOtHours(String(qty('OT')))
     setExtendCount(String(qty('EXTEND')))
+    setCoefficient(Number(shift.coefficient) || 1)
     setStatus(shift.status || 'scheduled')
     setErrors({})
     setToast(null)
@@ -143,7 +158,8 @@ export function ShiftMoneyEditor({
   if (!shift) return null
 
   const normalHours = calcNormalHours(shift)
-  const normalIncome = normalHours * (rates.NORMAL_RATE ?? 0)
+  // Hệ số ca CHỈ nhân lương cơ bản (normal), không nhân NPC/OT/EXTEND
+  const normalIncome = normalHours * (rates.NORMAL_RATE ?? 0) * coefficient
   const npcIncome = parseNum(npcHours) * (rates.NPC_RATE ?? 0)
   // OT = x2 lương ca thường (2 x NORMAL_RATE) — lấy từ util chung
   const otRate = getOtRate(rates)
@@ -171,6 +187,7 @@ export function ShiftMoneyEditor({
           npcHours: parseNum(npcHours),
           otHours: parseNum(otHours),
           extendCount: parseNum(extendCount),
+          coefficient: Number(coefficient) || 1,
         },
         status,
       )
@@ -222,6 +239,16 @@ export function ShiftMoneyEditor({
             onChange={(e) => setStatus(e.target.value)}
             options={statusOptions}
           />
+          <FormSelect
+            label="Hệ số ca"
+            value={coefficient}
+            onChange={(e) => setCoefficient(Number(e.target.value) || 1)}
+            options={coefficientOptions}
+            helper="Chỉ nhân lương cơ bản, không nhân phụ thu"
+          />
+        </FormRow>
+
+        <FormRow>
           <StepperField
             label="NPC (giờ)"
             value={npcHours}
@@ -230,9 +257,6 @@ export function ShiftMoneyEditor({
             error={errors.npc}
             onChange={setNpcHours}
           />
-        </FormRow>
-
-        <FormRow>
           <StepperField
             label="OT (giờ)"
             value={otHours}
@@ -241,6 +265,9 @@ export function ShiftMoneyEditor({
             error={errors.ot}
             onChange={setOtHours}
           />
+        </FormRow>
+
+        <FormRow>
           <StepperField
             label="EXTEND (lần)"
             value={extendCount}
@@ -260,13 +287,15 @@ export function ShiftMoneyEditor({
             padding: '14px 16px',
           }}
         >
-          <p style={{ margin: 0, fontSize: 12, color: '#047857', fontWeight: 600 }}>Tổng tiền ca này</p>
+          <p style={{ margin: 0, fontSize: 12, color: '#047857', fontWeight: 600 }}>
+            Tổng tiền ca này{Number(coefficient) > 1 ? ` · x${coefficient}` : ''}
+          </p>
           <p style={{ margin: '6px 0 0', fontSize: 26, fontWeight: 800, color: '#065f46', lineHeight: 1.1 }}>
             {formatVND(total)}
           </p>
           <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#047857', lineHeight: 1.5 }}>
-            {normalHours.toFixed(1)}h ca thường · {parseNum(npcHours).toFixed(1)}h NPC · {parseNum(otHours).toFixed(1)}h OT ·{' '}
-            {parseNum(extendCount)} EXTEND
+            {normalHours.toFixed(1)}h ca thường{Number(coefficient) !== 1 ? ` × x${coefficient}` : ''} ·{' '}
+            {parseNum(npcHours).toFixed(1)}h NPC · {parseNum(otHours).toFixed(1)}h OT · {parseNum(extendCount)} EXTEND
           </p>
         </div>
       </ScheduleModal>

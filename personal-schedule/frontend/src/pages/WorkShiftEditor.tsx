@@ -28,8 +28,12 @@ const initialFormData: Partial<WorkShift> = {
   actual_start: '',
   actual_end: '',
   status: 'scheduled',
+  coefficient: 1,
   note: '',
 }
+
+// Hệ số ca phổ biến (ca lễ x2, x1.5...)
+const COEFFICIENT_PRESETS = [1, 1.5, 2, 2.5, 3]
 
 // 3 ca cố định — không có ca nào tự chỉnh giờ
 export const FIXED_SHIFTS = [
@@ -95,6 +99,7 @@ export function WorkShiftEditor({
           actual_start: shiftToEdit.actual_start || '',
           actual_end: shiftToEdit.actual_end || '',
           status: shiftToEdit.status || 'scheduled',
+          coefficient: Number(shiftToEdit.coefficient) || 1,
           note: shiftToEdit.note || '',
         })
       } else {
@@ -161,6 +166,7 @@ export function WorkShiftEditor({
         actual_start: formData.actual_start || null,
         actual_end: formData.actual_end || null,
         status: formData.status || 'scheduled',
+        coefficient: Number(formData.coefficient) || 1,
         note: formData.note?.trim() || null,
       })
       setToast({ message: 'Lưu ca làm thành công!', type: 'success' })
@@ -267,6 +273,13 @@ export function WorkShiftEditor({
             value={formData.status || 'scheduled'}
             onChange={(e) => setFormData({ ...formData, status: e.target.value })}
             options={statusOptions}
+          />
+          <FormSelect
+            label="Hệ số ca"
+            value={Number(formData.coefficient) || 1}
+            onChange={(e) => setFormData({ ...formData, coefficient: Number(e.target.value) || 1 })}
+            options={COEFFICIENT_PRESETS.map((v) => ({ value: v, label: `x${v}` }))}
+            helper="Ca lễ x2/x1.5 — chỉ nhân lương cơ bản"
           />
         </FormRow>
 

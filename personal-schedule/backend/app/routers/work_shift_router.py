@@ -105,6 +105,7 @@ def update_work_shift_extras(
         work_shift,
         user_id=current_user.id,
         status=payload.status,
+        coefficient=payload.coefficient,
         quantities={
             "NPC": payload.npc_hours if payload.npc_hours is not None else 0.0,
             "OT": payload.ot_hours if payload.ot_hours is not None else 0.0,
@@ -131,6 +132,7 @@ def update_work_shift_edit_alias(
         work_shift,
         user_id=current_user.id,
         status=payload.status,
+        coefficient=payload.coefficient,
         quantities={
             "NPC": payload.npc_hours if payload.npc_hours is not None else 0.0,
             "OT": payload.ot_hours if payload.ot_hours is not None else 0.0,

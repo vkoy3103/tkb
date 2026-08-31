@@ -178,7 +178,7 @@ export default function SchedulePage() {
 
   const handleSaveShiftMoney = async (
     shift: WorkShift,
-    values: { npcHours: number; otHours: number; extendCount: number },
+    values: { npcHours: number; otHours: number; extendCount: number; coefficient: number },
     status: string,
   ) => {
     setSaving(true)
@@ -188,6 +188,7 @@ export default function SchedulePage() {
         npc_hours: values.npcHours,
         ot_hours: values.otHours,
         extend_count: values.extendCount,
+        coefficient: values.coefficient,
       })
       await loadData()
     } finally {

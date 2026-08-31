@@ -74,9 +74,10 @@ def sync_work_shift_extras(
     *,
     user_id: int,
     status: str | None = None,
+    coefficient: float | None = None,
     quantities: dict[str, float],
 ) -> None:
-    """Cập nhật trạng thái ca + đồng bộ work_extras (NPC/OT/EXTEND...) trong MỘT transaction.
+    """Cập nhật trạng thái ca + hệ số ca + đồng bộ work_extras (NPC/OT/EXTEND...) trong MỘT transaction.
 
     Mỗi loại phụ thu chỉ có DUY NHẤT 1 bản ghi cho 1 ca:
     - quantity > 0 → tạo mới nếu chưa có, cập nhật nếu có (tự động tính lại unit_price + amount)
@@ -85,6 +86,8 @@ def sync_work_shift_extras(
     """
     if status is not None and status != work_shift.status:
         work_shift.status = status
+    if coefficient is not None:
+        work_shift.coefficient = coefficient
 
     for code, quantity in quantities.items():
         extra_type = db.query(WorkExtraType).filter(

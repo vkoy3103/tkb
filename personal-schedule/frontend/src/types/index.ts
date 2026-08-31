@@ -65,6 +65,7 @@ export interface WorkShift {
   actual_start?: string | null
   actual_end?: string | null
   status: string
+  coefficient?: number | null
   note?: string | null
   created_at: string
   updated_at: string

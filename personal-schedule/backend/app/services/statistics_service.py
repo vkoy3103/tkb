@@ -103,30 +103,57 @@ def make_statistics(db: Session, user_id: int, start_date: date, end_date: date)
     extras = get_extras_in_range(db, user_id, start_date, end_date)
     study_hours = get_study_hours(db, user_id, start_date, end_date)
 
-    normal_hours = sum(calculate_work_shift_normal_hours(shift) for shift in shifts)
-    ot_start = get_ot_start_time(user_id)
-    ot_hours = sum(calculate_work_shift_ot_hours(shift, ot_start) for shift in shifts)
-
-    npc_hours = 0.0
-    extend_count = 0
-    for extra in extras:
-        if extra.extra_type is None:
-            continue
-        code = extra.extra_type.code.upper()
-        if code == "NPC":
-            npc_hours += float(extra.quantity or 0)
-        elif code == "OT":
-            ot_hours += float(extra.quantity or 0)
-        elif code == "EXTEND":
-            extend_count += int(extra.quantity or 0)
-
     normal_rate = settings.get("NORMAL_RATE", 0.0)
     # OT = x2 lương ca thường — get_rates() đã tính OT_RATE = 2 x NORMAL_RATE
     ot_rate = settings.get("OT_RATE", 0.0)
-    normal_income = int(round(normal_hours * normal_rate))
-    ot_income = int(round(ot_hours * ot_rate))
-    npc_income = int(round(npc_hours * settings.get("NPC_RATE", 0.0)))
-    extend_income = int(round(extend_count * settings.get("EXTEND_RATE", 0.0)))
+    npc_rate = settings.get("NPC_RATE", 0.0)
+    extend_rate = settings.get("EXTEND_RATE", 0.0)
+
+    ot_start = get_ot_start_time(user_id)
+
+    # Gom phụ thu theo từng ca để áp hệ số ca cho từng khoản tiền
+    extras_by_shift: dict[int, list[WorkExtra]] = {}
+    for extra in extras:
+        extras_by_shift.setdefault(extra.work_shift_id, []).append(extra)
+
+    normal_hours = 0.0
+    ot_hours = 0.0
+    npc_hours = 0.0
+    extend_count = 0
+    normal_income_raw = 0.0
+    ot_income_raw = 0.0
+    npc_income_raw = 0.0
+    extend_income_raw = 0.0
+
+    for shift in shifts:
+        # Hệ số ca (mặc định x1) — CHỈ nhân lương cơ bản (normal), không nhân các phụ thu NPC/OT/EXTEND
+        coefficient = float(getattr(shift, "coefficient", None) or 1.0)
+        n_hours = calculate_work_shift_normal_hours(shift)
+        o_hours = calculate_work_shift_ot_hours(shift, ot_start)
+        normal_hours += n_hours
+        ot_hours += o_hours
+        normal_income_raw += n_hours * normal_rate * coefficient
+        ot_income_raw += o_hours * ot_rate
+
+        for extra in extras_by_shift.get(shift.id, []):
+            if extra.extra_type is None:
+                continue
+            code = extra.extra_type.code.upper()
+            qty = float(extra.quantity or 0)
+            if code == "NPC":
+                npc_hours += qty
+                npc_income_raw += qty * npc_rate
+            elif code == "OT":
+                ot_hours += qty
+                ot_income_raw += qty * ot_rate
+            elif code == "EXTEND":
+                extend_count += int(qty)
+                extend_income_raw += qty * extend_rate
+
+    normal_income = int(round(normal_income_raw))
+    ot_income = int(round(ot_income_raw))
+    npc_income = int(round(npc_income_raw))
+    extend_income = int(round(extend_income_raw))
 
     return {
         "study_hours": round(study_hours, 2),

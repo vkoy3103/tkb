@@ -101,6 +101,10 @@ def on_startup():
     except SQLAlchemyError:
         pass
     try:
+        _ensure_work_shift_coefficient_column()
+    except SQLAlchemyError:
+        pass
+    try:
         _sync_sequences()
     except SQLAlchemyError:
         pass
@@ -152,6 +156,18 @@ def _ensure_subject_week_columns():
             conn.execute(text("ALTER TABLE subjects ADD COLUMN week_start INTEGER"))
         if "week_end" not in columns:
             conn.execute(text("ALTER TABLE subjects ADD COLUMN week_end INTEGER"))
+
+
+def _ensure_work_shift_coefficient_column():
+    """Thêm cột coefficient (hệ số ca, mặc định x1) cho bảng work_shifts nếu chưa có.
+    Hệ số nhân CHỈ áp dụng cho lương cơ bản (normal), không áp cho phụ thu NPC/OT/EXTEND."""
+    inspector = inspect(engine)
+    columns = [col["name"] for col in inspector.get_columns("work_shifts")]
+    if "coefficient" in columns:
+        return
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE work_shifts ADD COLUMN coefficient FLOAT DEFAULT 1.0"))
+        conn.execute(text("UPDATE work_shifts SET coefficient = 1.0 WHERE coefficient IS NULL"))
 
 
 def _sync_sequences():

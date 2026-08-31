@@ -10,6 +10,7 @@ class WorkShiftBase(BaseModel):
     actual_start: dt_time | None = None
     actual_end: dt_time | None = None
     status: str = Field(default="scheduled")
+    coefficient: float = Field(default=1.0, ge=0.1, le=10, description="Hệ số ca (vd lễ x2, x1.5)")
     note: str | None = None
 
 
@@ -21,6 +22,7 @@ class WorkShiftCreate(BaseModel):
     actual_start: dt_time | None = None
     actual_end: dt_time | None = None
     status: str = Field(default="scheduled")
+    coefficient: float = Field(default=1.0, ge=0.1, le=10, description="Hệ số ca (vd lễ x2, x1.5)")
     note: str | None = None
 
 
@@ -32,6 +34,7 @@ class WorkShiftUpdate(BaseModel):
     actual_start: dt_time | None = None
     actual_end: dt_time | None = None
     status: str | None = None
+    coefficient: float | None = Field(default=None, ge=0.1, le=10, description="Hệ số ca (vd lễ x2, x1.5)")
     note: str | None = None
 
 
@@ -50,3 +53,4 @@ class WorkShiftExtrasUpdate(BaseModel):
     npc_hours: float | None = None
     ot_hours: float | None = None
     extend_count: float | None = None
+    coefficient: float | None = Field(default=None, ge=0.1, le=10, description="Hệ số ca (vd lễ x2, x1.5)")

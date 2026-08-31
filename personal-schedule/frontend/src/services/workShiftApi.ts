@@ -22,7 +22,7 @@ export async function deleteWorkShift(workShiftId: number) {
 
 export async function syncWorkShiftExtras(
   workShiftId: number,
-  payload: { status?: string; npc_hours?: number; ot_hours?: number; extend_count?: number },
+  payload: { status?: string; npc_hours?: number; ot_hours?: number; extend_count?: number; coefficient?: number },
 ) {
   const response = await api.put<WorkShift>(`/work-shifts/${workShiftId}/extras`, payload)
   return response.data

@@ -52,6 +52,7 @@ export type ShiftMoney = {
 
 // Tính tiền cho 1 ca làm. Mọi đơn giá lấy từ `rates` (đã map từ settings).
 // OT LUÔN = 2 x NORMAL_RATE (qua getOtRate). Không dùng amount lưu sẵn — tránh lệch khi đổi lương.
+// Hệ số ca (coefficient, vd ca lễ x2/x1.5) CHỈ nhân lương cơ bản (normal), KHÔNG nhân NPC/OT/EXTEND.
 export function calcShiftMoney(
   shift: WorkShift,
   extras: WorkExtra[],
@@ -59,8 +60,9 @@ export function calcShiftMoney(
   otStartMinutes: number,
 ): ShiftMoney {
   const normalHours = calcNormalHours(shift)
+  const coefficient = shift.coefficient ?? 1
   let otHours = calcOtHours(shift, otStartMinutes)
-  let normalIncome = normalHours * (rates.NORMAL_RATE ?? 0)
+  let normalIncome = normalHours * (rates.NORMAL_RATE ?? 0) * coefficient
   const otRate = getOtRate(rates)
   let otIncome = otHours * otRate
   let npcHours = 0

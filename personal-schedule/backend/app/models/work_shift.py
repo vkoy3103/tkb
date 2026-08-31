@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, Text, Time
+from sqlalchemy import Column, Date, DateTime, Float, ForeignKey, Integer, String, Text, Time
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -17,6 +17,8 @@ class WorkShift(Base):
     actual_start = Column(Time, nullable=True)
     actual_end = Column(Time, nullable=True)
     status = Column(String(30), nullable=True, default="scheduled")
+    # Hệ số ca làm (vd ca lễ x2, x1.5) — CHỈ nhân lương cơ bản (normal), không nhân phụ thu NPC/OT/EXTEND
+    coefficient = Column(Float, nullable=False, default=1.0, server_default="1")
     note = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

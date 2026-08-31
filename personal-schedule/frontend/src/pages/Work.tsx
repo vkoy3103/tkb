@@ -171,12 +171,14 @@ export default function WorkPage() {
     let extendCount = 0
     let extendIncome = 0
     let totalIncome = 0
+    let normalIncome = 0
     let shiftCount = 0
     for (const shift of shifts) {
       if (!shift.date.startsWith(monthKey)) continue
       const money = shiftMoney(shift)
       // Giờ làm chỉ tính ca thường; OT/NPC/EXTEND là làm thêm trong ca, không cộng vào giờ làm
       totalHours += money.normalHours
+      normalIncome += money.normalIncome
       otHours += money.otHours
       otIncome += money.otIncome
       npcHours += money.npcHours
@@ -186,7 +188,7 @@ export default function WorkPage() {
       totalIncome += money.total
       shiftCount += 1
     }
-    return { totalHours, otHours, otIncome, npcHours, npcIncome, extendCount, extendIncome, totalIncome, shiftCount }
+    return { totalHours, normalIncome, otHours, otIncome, npcHours, npcIncome, extendCount, extendIncome, totalIncome, shiftCount }
   }, [shifts, monthKey, shiftMoney])
 
   const monthLabel = useMemo(
@@ -302,7 +304,7 @@ export default function WorkPage() {
 
   const handleSaveShiftMoney = async (
     shift: WorkShift,
-    values: { npcHours: number; otHours: number; extendCount: number },
+    values: { npcHours: number; otHours: number; extendCount: number; coefficient: number },
     status: string,
   ) => {
     setSaving(true)
@@ -312,6 +314,7 @@ export default function WorkPage() {
         npc_hours: values.npcHours,
         ot_hours: values.otHours,
         extend_count: values.extendCount,
+        coefficient: values.coefficient,
       })
       await load()
     } finally {
@@ -413,7 +416,7 @@ export default function WorkPage() {
           </div>
           <p className="pg-stat__value">{formatHours(monthlySummary.totalHours)}</p>
           <p className="pg-stat__extra pg-stat__extra--income">
-            = {formatVND(monthlySummary.totalHours * (rates.NORMAL_RATE ?? 0))}
+            = {formatVND(monthlySummary.normalIncome)}
           </p>
           <p className="pg-stat__extra">{monthlySummary.shiftCount} ca</p>
         </article>
