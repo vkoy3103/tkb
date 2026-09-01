@@ -660,6 +660,8 @@ export default function Subjects() {
         isOpen={isQuickImportOpen}
         onClose={() => setIsQuickImportOpen(false)}
         onDone={loadData}
+        existingSchedules={schedules}
+        periods={periods}
       />
     </div>
   )

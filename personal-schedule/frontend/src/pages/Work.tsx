@@ -643,6 +643,7 @@ export default function WorkPage() {
         isOpen={isQuickImportOpen}
         onClose={() => setIsQuickImportOpen(false)}
         onDone={load}
+        existingShifts={shifts}
       />
 
       <ShiftMoneyEditor

@@ -130,6 +130,52 @@
   margin-bottom: 10px;
 }
 
+/* Cảnh báo lịch trùng */
+.quick-import__conflict {
+  margin-bottom: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #fecaca;
+  border-radius: 0.7rem;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 0.8rem;
+}
+
+.quick-import__conflict-title {
+  line-height: 1.5;
+}
+
+.quick-import__conflict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.quick-import__row--conflict {
+  background: #fef2f2 !important;
+}
+
+.quick-import__row--conflict .quick-import__cell {
+  background: #fff5f5;
+}
+
+.quick-import__skip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #b91c1c;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.quick-import__skip input {
+  accent-color: #dc2626;
+  cursor: pointer;
+}
+
 .quick-import__preview {
   margin-top: 8px;
   border: 1px solid #e2e8f0;

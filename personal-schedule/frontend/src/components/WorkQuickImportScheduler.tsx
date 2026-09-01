@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createWorkShift } from '../services/workShiftApi'
+import type { WorkShift } from '../types'
 import '../styles/quick-import.css'
 
 interface WorkQuickImportSchedulerProps {
   isOpen: boolean
   onClose: () => void
   onDone: () => Promise<void>
+  existingShifts?: WorkShift[]
 }
 
 interface ParsedShift {
@@ -22,6 +24,22 @@ const DEFAULT_SHIFTS = [
   { type: 'SHIFT 2', start: '13:00', end: '18:00' },
   { type: 'SHIFT 3', start: '18:00', end: '22:00' },
 ]
+
+// Đổi "HH:MM" → số phút (để so trùng giờ)
+function toMinutes(value?: string | null): number | null {
+  if (!value) return null
+  const [h, m] = value.split(':').map(Number)
+  if (Number.isNaN(h) || Number.isNaN(m)) return null
+  return h * 60 + m
+}
+
+// Khoảng thời gian của 1 ca (để so trùng)
+function shiftRange(s: { scheduled_start: string; scheduled_end: string }): { start: number; end: number } | null {
+  const start = toMinutes(s.scheduled_start)
+  const end = toMinutes(s.scheduled_end)
+  if (start == null || end == null) return null
+  return { start, end }
+}
 
 // Bỏ dấu tiếng Việt để so khớp tên không phân biệt hoa/thường
 function normalizeName(value: string): string {
@@ -201,6 +219,7 @@ export function WorkQuickImportScheduler({
   isOpen,
   onClose,
   onDone,
+  existingShifts = [],
 }: WorkQuickImportSchedulerProps): React.ReactElement | null {
   const [name, setName] = useState('')
   const [rawText, setRawText] = useState('')
@@ -208,6 +227,7 @@ export function WorkQuickImportScheduler({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [successCount, setSuccessCount] = useState(0)
+  const [skipped, setSkipped] = useState<Set<number>>(new Set()) // các ca trùng được user chọn bỏ qua
 
   useEffect(() => {
     if (isOpen) {
@@ -216,14 +236,53 @@ export function WorkQuickImportScheduler({
       setRows([])
       setError('')
       setSuccessCount(0)
+      setSkipped(new Set())
     }
   }, [isOpen])
 
   const year = useMemo(() => new Date().getFullYear(), [])
 
+  // Các ca bị TRÙNG thời gian (giữa các ca dán với nhau hoặc với ca hiện có)
+  const conflictIndices = useMemo(() => {
+    const conflict = new Set<number>()
+    const ranges = rows.map(shiftRange)
+    for (let i = 0; i < rows.length; i++) {
+      const ri = ranges[i]
+      if (!ri) continue
+      // Trùng với ca khác trong bảng dán (cùng ngày + giờ giao nhau)
+      for (let j = i + 1; j < rows.length; j++) {
+        const rj = ranges[j]
+        if (!rj) continue
+        if (rows[i].date === rows[j].date && ri.start < rj.end && rj.start < ri.end) {
+          conflict.add(i)
+          conflict.add(j)
+        }
+      }
+      // Trùng với ca làm hiện có
+      for (const s of existingShifts) {
+        if (s.date !== rows[i].date) continue
+        const sr = shiftRange(s)
+        if (sr && ri.start < sr.end && sr.start < ri.end) {
+          conflict.add(i)
+        }
+      }
+    }
+    return conflict
+  }, [rows, existingShifts])
+
+  // Nếu 1 ca được sửa thành hết trùng → tự bỏ chọn "Bỏ qua"
+  useEffect(() => {
+    setSkipped((prev) => {
+      if (prev.size === 0) return prev
+      const next = new Set([...prev].filter((i) => conflictIndices.has(i)))
+      return next.size === prev.size ? prev : next
+    })
+  }, [conflictIndices])
+
   const handleAnalyze = () => {
     setError('')
     setSuccessCount(0)
+    setSkipped(new Set())
     if (!name.trim()) {
       setError('Vui lòng nhập tên người cần lọc ca làm.')
       setRows([])
@@ -240,16 +299,30 @@ export function WorkQuickImportScheduler({
     setRows((current) => current.filter((_, i) => i !== index))
   }
 
+  const toggleSkip = (i: number) => {
+    setSkipped((prev) => {
+      const next = new Set(prev)
+      if (next.has(i)) next.delete(i)
+      else next.add(i)
+      return next
+    })
+  }
+
+  const skipAllConflicts = () => setSkipped(new Set([...conflictIndices]))
+  const clearSkipped = () => setSkipped(new Set())
+
+  const addableRows = rows.filter((_, i) => !skipped.has(i))
+
   const handleSave = async () => {
-    if (rows.length === 0) {
-      setError('Chưa có ca làm nào để thêm.')
+    if (addableRows.length === 0) {
+      setError('Chưa có ca làm nào để thêm. Vui lòng kiểm tra lại.')
       return
     }
     setSaving(true)
     setError('')
     let count = 0
     try {
-      for (const row of rows) {
+      for (const row of addableRows) {
         await createWorkShift({
           date: row.date,
           shift_type: row.shift_type,
@@ -335,15 +408,32 @@ export function WorkQuickImportScheduler({
               type="button"
               className="pg-btn pg-btn--success"
               onClick={handleSave}
-              disabled={saving || rows.length === 0}
+              disabled={saving || addableRows.length === 0}
             >
-              {saving ? 'Đang lưu...' : `➕ Thêm ${rows.length} ca làm`}
+              {saving ? 'Đang lưu...' : `➕ Thêm ${addableRows.length} ca làm`}
             </button>
           </div>
 
           {error && <div className="schedule-alert">{error}</div>}
           {successCount > 0 && (
             <div className="quick-import__success">✅ Đã thêm {successCount} ca làm thành công!</div>
+          )}
+
+          {conflictIndices.size > 0 && (
+            <div className="quick-import__conflict">
+              <div className="quick-import__conflict-title">
+                ⚠️ Phát hiện <b>{conflictIndices.size}</b> ca làm bị <b>trùng thời gian</b> (với ca làm hiện có hoặc
+                giữa các ca với nhau). Các dòng đỏ bên dưới — tick <b>Bỏ qua</b> nếu không muốn thêm.
+              </div>
+              <div className="quick-import__conflict-actions">
+                <button type="button" className="pg-btn pg-btn--sm pg-btn--ghost" onClick={skipAllConflicts}>
+                  Bỏ qua tất cả ca trùng
+                </button>
+                <button type="button" className="pg-btn pg-btn--sm pg-btn--ghost" onClick={clearSkipped}>
+                  Thêm tất cả
+                </button>
+              </div>
+            </div>
           )}
 
           {rows.length > 0 && (
@@ -356,18 +446,27 @@ export function WorkQuickImportScheduler({
                     <th>Ca</th>
                     <th>Giờ</th>
                     <th>Cơ sở</th>
+                    <th>⚠️</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((row, i) => (
-                    <tr key={i}>
+                    <tr key={i} className={conflictIndices.has(i) ? 'quick-import__row--conflict' : ''}>
                       <td>{row.date}</td>
                       <td>{row.shift_type}</td>
                       <td>
                         {row.scheduled_start} – {row.scheduled_end}
                       </td>
                       <td>{row.note || '—'}</td>
+                      <td>
+                        {conflictIndices.has(i) ? (
+                          <label className="quick-import__skip">
+                            <input type="checkbox" checked={skipped.has(i)} onChange={() => toggleSkip(i)} />
+                            Bỏ qua
+                          </label>
+                        ) : null}
+                      </td>
                       <td>
                         <button type="button" className="quick-import__remove" onClick={() => removeRow(i)} title="Xóa ca này">
                           ✕

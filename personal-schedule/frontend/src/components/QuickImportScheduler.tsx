@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import type { Schedule, Subject } from '../types'
+import type { Period, Schedule, Subject } from '../types'
 import { createSchedule } from '../services/scheduleApi'
 import { createSubject } from '../services/subjectApi'
 import '../styles/quick-import.css'
@@ -9,6 +9,8 @@ interface QuickImportSchedulerProps {
   isOpen: boolean
   onClose: () => void
   onDone: () => Promise<void>
+  existingSchedules?: Schedule[]
+  periods?: Period[]
 }
 
 interface ParsedRow {
@@ -264,10 +266,45 @@ function parseLine(line: string, index: number): ParsedRow | null {
   }
 }
 
+// Đổi "HH:MM" → số phút (để so trùng giờ)
+function toMinute(value?: string | null): number {
+  if (!value) return 0
+  const [h, m] = value.split(':').map(Number)
+  return (h || 0) * 60 + (m || 0)
+}
+
+// Khoảng thời gian của 1 dòng dán nhanh (giờ hoặc tiết → giờ), null nếu chưa đủ thông tin
+function rowTimeRange(row: ParsedRow, periodsMap: Map<number, Period>): { start: number; end: number } | null {
+  if (row.start_time && row.end_time) {
+    return { start: toMinute(row.start_time), end: toMinute(row.end_time) }
+  }
+  if (row.start_period !== '' && row.end_period !== '') {
+    const sp = periodsMap.get(Number(row.start_period))
+    const ep = periodsMap.get(Number(row.end_period))
+    if (sp && ep) return { start: toMinute(sp.start_time), end: toMinute(ep.end_time) }
+  }
+  return null
+}
+
+// Khoảng thời gian của 1 lịch học hiện có (để so trùng)
+function scheduleTimeRange(s: Schedule, periodsMap: Map<number, Period>): { start: number; end: number } | null {
+  if (s.start_time && s.end_time) {
+    return { start: toMinute(s.start_time), end: toMinute(s.end_time) }
+  }
+  if (s.start_period != null && s.end_period != null) {
+    const sp = periodsMap.get(Number(s.start_period))
+    const ep = periodsMap.get(Number(s.end_period))
+    if (sp && ep) return { start: toMinute(sp.start_time), end: toMinute(ep.end_time) }
+  }
+  return null
+}
+
 export function QuickImportScheduler({
   isOpen,
   onClose,
   onDone,
+  existingSchedules = [],
+  periods = [],
 }: QuickImportSchedulerProps): React.ReactElement | null {
   const { scheduleMode } = useAuth()
   const isTimeMode = scheduleMode === 'TIME'
@@ -277,6 +314,7 @@ export function QuickImportScheduler({
   const [error, setError] = useState('')
   const [successCount, setSuccessCount] = useState(0)
   const [copied, setCopied] = useState(false)
+  const [skipped, setSkipped] = useState<Set<number>>(new Set()) // các dòng trùng được user chọn bỏ qua
 
   useEffect(() => {
     if (isOpen) {
@@ -284,6 +322,7 @@ export function QuickImportScheduler({
       setRows([])
       setError('')
       setSuccessCount(0)
+      setSkipped(new Set())
     }
   }, [isOpen])
 
@@ -291,6 +330,47 @@ export function QuickImportScheduler({
     const lines = rawText.split(/\r?\n/).filter((l) => l.trim())
     return lines.map((line, i) => parseLine(line, i)).filter((r): r is ParsedRow => r !== null)
   }, [rawText])
+
+  // Bản đồ tiết → khung giờ (để quy đổi tiết sang giờ khi so trùng)
+  const periodsMap = useMemo(() => new Map(periods.map((p) => [p.period_number, p])), [periods])
+
+  // Các dòng bị TRÙNG thời gian (giữa các dòng với nhau hoặc với lịch hiện có)
+  const conflictIndices = useMemo(() => {
+    const conflict = new Set<number>()
+    const ranges = rows.map((row) => rowTimeRange(row, periodsMap))
+    for (let i = 0; i < rows.length; i++) {
+      const wd = rows[i].weekday
+      const ri = ranges[i]
+      if (wd === '' || !ri) continue
+      // Trùng với dòng khác trong bảng dán
+      for (let j = i + 1; j < rows.length; j++) {
+        const rj = ranges[j]
+        if (rows[j].weekday !== wd || !rj) continue
+        if (ri.start < rj.end && rj.start < ri.end) {
+          conflict.add(i)
+          conflict.add(j)
+        }
+      }
+      // Trùng với lịch học hiện có
+      for (const s of existingSchedules) {
+        if (Number(s.weekday) !== Number(wd)) continue
+        const sr = scheduleTimeRange(s, periodsMap)
+        if (sr && ri.start < sr.end && sr.start < ri.end) {
+          conflict.add(i)
+        }
+      }
+    }
+    return conflict
+  }, [rows, existingSchedules, periodsMap])
+
+  // Nếu 1 dòng được sửa thành hết trùng → tự bỏ chọn "Bỏ qua" cho nó
+  useEffect(() => {
+    setSkipped((prev) => {
+      if (prev.size === 0) return prev
+      const next = new Set([...prev].filter((i) => conflictIndices.has(i)))
+      return next.size === prev.size ? prev : next
+    })
+  }, [conflictIndices])
 
   const updateRow = (index: number, patch: Partial<ParsedRow>) => {
     setRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)))
@@ -300,7 +380,20 @@ export function QuickImportScheduler({
     setRows(parsed)
     setError('')
     setSuccessCount(0)
+    setSkipped(new Set())
   }
+
+  const toggleSkip = (i: number) => {
+    setSkipped((prev) => {
+      const next = new Set(prev)
+      if (next.has(i)) next.delete(i)
+      else next.add(i)
+      return next
+    })
+  }
+
+  const skipAllConflicts = () => setSkipped(new Set([...conflictIndices]))
+  const clearSkipped = () => setSkipped(new Set())
 
   const copyPrompt = () => {
     const prompt = isTimeMode ? TIME_PROMPT : PERIOD_PROMPT
@@ -313,16 +406,17 @@ export function QuickImportScheduler({
       .catch(() => setError('Không copy được. Hãy copy thủ công đoạn prompt bên dưới.'))
   }
 
-  const savableRows = rows.filter((row) => row.name.trim())
+  const addableRows = rows.filter((row, i) => !skipped.has(i) && row.name.trim())
   const scheduleReadyRows = rows.filter(
-    (row) =>
+    (row, i) =>
+      !skipped.has(i) &&
       row.name &&
       row.weekday !== '' &&
       ((row.start_period !== '' && row.end_period !== '') || (row.start_time !== '' && row.end_time !== '')),
   )
 
   const handleSave = async () => {
-    if (savableRows.length === 0) {
+    if (addableRows.length === 0) {
       setError('Chưa có môn học nào để thêm. Vui lòng kiểm tra lại.')
       return
     }
@@ -331,7 +425,7 @@ export function QuickImportScheduler({
     let subjectCount = 0
     let scheduleCount = 0
     try {
-      for (const row of savableRows) {
+      for (const row of addableRows) {
         const subjectPayload: Omit<Subject, 'id' | 'created_at' | 'updated_at'> = {
           code: row.code || null,
           name: row.name.trim(),
@@ -447,15 +541,32 @@ export function QuickImportScheduler({
               type="button"
               className="pg-btn pg-btn--success"
               onClick={handleSave}
-              disabled={saving || savableRows.length === 0}
+              disabled={saving || addableRows.length === 0}
             >
-              {saving ? 'Đang lưu...' : `➕ Thêm ${savableRows.length} môn (${scheduleReadyRows.length} có lịch)`}
+              {saving ? 'Đang lưu...' : `➕ Thêm ${addableRows.length} môn (${scheduleReadyRows.length} có lịch)`}
             </button>
           </div>
 
           {error && <div className="schedule-alert">{error}</div>}
           {successCount > 0 && (
             <div className="quick-import__success">✅ Đã thêm {successCount} môn học + lịch học thành công!</div>
+          )}
+
+          {conflictIndices.size > 0 && (
+            <div className="quick-import__conflict">
+              <div className="quick-import__conflict-title">
+                ⚠️ Phát hiện <b>{conflictIndices.size}</b> lịch bị <b>trùng thời gian</b> (với lịch học hiện có hoặc
+                giữa các môn với nhau). Các dòng đỏ bên dưới — tick <b>Bỏ qua</b> nếu không muốn thêm.
+              </div>
+              <div className="quick-import__conflict-actions">
+                <button type="button" className="pg-btn pg-btn--sm pg-btn--ghost" onClick={skipAllConflicts}>
+                  Bỏ qua tất cả lịch trùng
+                </button>
+                <button type="button" className="pg-btn pg-btn--sm pg-btn--ghost" onClick={clearSkipped}>
+                  Thêm tất cả
+                </button>
+              </div>
+            </div>
           )}
 
           {rows.length > 0 && (
@@ -472,6 +583,7 @@ export function QuickImportScheduler({
                     <th>{rows.some((r) => r.start_time || r.end_time) ? 'Giờ / Tiết' : 'Tiết'}</th>
                     <th>Phòng</th>
                     <th>Tuần</th>
+                    <th>⚠️</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -479,7 +591,7 @@ export function QuickImportScheduler({
                   {rows.map((row, i) => {
                     const isTime = Boolean(row.start_time || row.end_time)
                     return (
-                      <tr key={i}>
+                      <tr key={i} className={conflictIndices.has(i) ? 'quick-import__row--conflict' : ''}>
                         <td>
                           <input
                             value={row.name}
@@ -599,6 +711,14 @@ export function QuickImportScheduler({
                           </div>
                         </td>
                         <td>
+                          {conflictIndices.has(i) ? (
+                            <label className="quick-import__skip">
+                              <input type="checkbox" checked={skipped.has(i)} onChange={() => toggleSkip(i)} />
+                              Bỏ qua
+                            </label>
+                          ) : null}
+                        </td>
+                        <td>
                           <button
                             type="button"
                             className="quick-import__remove"
@@ -626,9 +746,9 @@ export function QuickImportScheduler({
             type="button"
             className="btn btn--primary btn--small"
             onClick={handleSave}
-            disabled={saving || savableRows.length === 0}
+            disabled={saving || addableRows.length === 0}
           >
-            {saving ? 'Đang lưu...' : `✓ Thêm ${savableRows.length} môn`}
+            {saving ? 'Đang lưu...' : `✓ Thêm ${addableRows.length} môn`}
           </button>
         </div>
       </div>
