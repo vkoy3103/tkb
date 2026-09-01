@@ -127,11 +127,7 @@ export function WorkExtraEditor({
         unit_price: form.unit_price === '' ? null : Number(form.unit_price),
         note: form.note.trim() || null,
       })
-      setToast({ message: 'Đã lưu phụ thu!', type: 'success' })
-      setTimeout(() => {
-        onClose()
-        setToast(null)
-      }, 900)
+      onClose()
     } catch (error) {
       setToast({ message: `Lỗi: ${(error as Error).message}`, type: 'error' })
     }
@@ -141,11 +137,7 @@ export function WorkExtraEditor({
     if (!onDelete) return
     try {
       await onDelete()
-      setToast({ message: 'Đã xóa phụ thu!', type: 'success' })
-      setTimeout(() => {
-        onClose()
-        setToast(null)
-      }, 900)
+      onClose()
     } catch (error) {
       setToast({ message: `Lỗi: ${(error as Error).message}`, type: 'error' })
     }

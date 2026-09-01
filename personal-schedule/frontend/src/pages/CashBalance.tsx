@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import '../styles/pages.css'
 import '../styles/cash-balance.css'
 
@@ -33,6 +33,86 @@ const formatInputValue = (value: number): string => {
 
 const QUICK_AMOUNTS = [1, 2, 5, 10, 20, 50, 100, 200, 500] // đơn vị: nghìn
 
+// Mệnh giá tiền Việt Nam (VNĐ) — dùng để đếm tiền két
+const BILLS = [
+  { denom: 1000, label: '1k' },
+  { denom: 2000, label: '2k' },
+  { denom: 5000, label: '5k' },
+  { denom: 10000, label: '10k' },
+  { denom: 20000, label: '20k' },
+  { denom: 50000, label: '50k' },
+  { denom: 100000, label: '100k' },
+  { denom: 200000, label: '200k' },
+  { denom: 500000, label: '500k' },
+]
+
+// Ô nhập số tờ: nút mũi tên lên/xuống CSS đẹp + lăn chuột tăng/giảm nhanh (không cuộn trang)
+function BillCountCell({
+  denom,
+  label,
+  count,
+  onChange,
+}: {
+  denom: number
+  label: string
+  count: number
+  onChange: (denom: number, value: string) => void
+}) {
+  const ref = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    // Lăn chuột: tăng/giảm theo tốc độ lăn (deltaY lớn → nhảy nhiều số)
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      if (!e.deltaY) return
+      const steps = Math.max(1, Math.round(Math.abs(e.deltaY) / 40))
+      const dir = e.deltaY > 0 ? -1 : 1
+      const next = Math.max(0, (Number(el.value) || 0) + dir * steps)
+      el.value = String(next)
+      onChange(denom, String(next))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [denom, onChange])
+
+  return (
+    <div className="cb-bill">
+      <span className="cb-bill__denom">{label}</span>
+      <input
+        ref={ref}
+        className="pg-input cb-bill__count"
+        type="number"
+        min={0}
+        step={1}
+        inputMode="numeric"
+        placeholder="0"
+        value={count || ''}
+        onChange={(e) => onChange(denom, e.target.value)}
+      />
+      <div className="cb-bill__spin">
+        <button
+          type="button"
+          className="cb-bill__arrow"
+          onClick={() => onChange(denom, String(Math.max(0, count + 1)))}
+          aria-label={`Tăng ${label}`}
+        >
+          ▲
+        </button>
+        <button
+          type="button"
+          className="cb-bill__arrow"
+          onClick={() => onChange(denom, String(Math.max(0, count - 1)))}
+          aria-label={`Giảm ${label}`}
+        >
+          ▼
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function CashBalancePage() {
   const [cashIncome, setCashIncome] = useState(0) // tiền mặt quán thu — nhập tay
   const [incomeItems, setIncomeItems] = useState<number[]>([]) // các khoản thu khác
@@ -42,7 +122,8 @@ export default function CashBalancePage() {
   const [banked, setBanked] = useState(0) // bỏ két
   const [yesterdaySafe, setYesterdaySafe] = useState(0) // két hôm qua — nhập tay
   const [todaySafe, setTodaySafe] = useState(0) // két hôm nay (dự kiến) — tự tính
-  const [actualSafe, setActualSafe] = useState(0) // két hôm nay thực tế — nhập tay
+  const [actualSafe, setActualSafe] = useState(0) // két hôm nay thực tế — nhập tay (tự điền khi đếm tờ)
+  const [billCounts, setBillCounts] = useState<Record<number, number>>({}) // số tờ theo mệnh giá
   const [copied, setCopied] = useState(false)
 
   const totalIncome = incomeItems.reduce((a, b) => a + b, 0)
@@ -58,6 +139,17 @@ export default function CashBalancePage() {
   useEffect(() => {
     setTodaySafe((Number(yesterdaySafe) || 0) + (Number(banked) || 0))
   }, [yesterdaySafe, banked])
+
+  // Tổng tiền đếm được từ số tờ các mệnh giá
+  const safeFromBills = useMemo(
+    () => BILLS.reduce((sum, b) => sum + b.denom * (billCounts[b.denom] || 0), 0),
+    [billCounts],
+  )
+
+  // Tự điền vào ô "Két hôm nay (thực tế)" khi có đếm tiền
+  useEffect(() => {
+    if (safeFromBills > 0) setActualSafe(safeFromBills)
+  }, [safeFromBills])
 
   // Chênh lệch két thực tế vs dự kiến (dương → thừa/xanh, âm → thiếu/đỏ)
   const diffSafe = (Number(actualSafe) || 0) - (Number(todaySafe) || 0)
@@ -86,6 +178,17 @@ export default function CashBalancePage() {
     index: number,
   ) => {
     setter((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  // Cập nhật số tờ một mệnh giá (chỉ nhận số nguyên >= 0) — stable để dùng trong BillCountCell
+  const setBillCount = useCallback((denom: number, value: string) => {
+    const n = Math.max(0, Math.floor(Number(value) || 0))
+    setBillCounts((prev) => ({ ...prev, [denom]: n }))
+  }, [])
+
+  const resetBills = () => {
+    setBillCounts({})
+    setActualSafe(0)
   }
 
   const outputText = useMemo(() => {
@@ -133,9 +236,40 @@ export default function CashBalancePage() {
               type="text"
               inputMode="decimal"
               placeholder="Nhập số tiền... (vd: 500k hoặc 500000)"
-              value={cashIncome ? (cashIncome % 1000 === 0 ? `${cashIncome / 1000}k` : String(cashIncome)) : ''}
+              value={cashIncome ? String(cashIncome) : ''}
               onChange={(e) => setCashIncome(parseAmount(e.target.value))}
             />
+          </div>
+
+          <div className="pg-card">
+            <div className="pg-card__head">
+              <h3 className="pg-card__title">🏦 Đếm tiền két (số tờ)</h3>
+            </div>
+            <p className="pg-card__subtitle">
+              Nhập số tờ mỗi mệnh giá → tự điền vào "Két hôm nay (thực tế)".
+            </p>
+            <div className="cb-bills">
+              {BILLS.map((b) => (
+                <BillCountCell
+                  key={b.denom}
+                  denom={b.denom}
+                  label={b.label}
+                  count={billCounts[b.denom] || 0}
+                  onChange={setBillCount}
+                />
+              ))}
+            </div>
+            <div className="cb-bills__total">
+              <span>Tổng tiền két (thực tế)</span>
+              <b>{fmtMoney(safeFromBills)}</b>
+            </div>
+            {safeFromBills > 0 && (
+              <div className="cb-bills__actions">
+                <button type="button" className="pg-btn pg-btn--sm pg-btn--ghost" onClick={resetBills}>
+                  ✕ Đặt lại số tờ
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="pg-card">
@@ -280,7 +414,7 @@ export default function CashBalancePage() {
                 type="text"
                 inputMode="decimal"
                 placeholder="Nhập két hôm qua (vd: 20k)"
-                value={yesterdaySafe ? (yesterdaySafe % 1000 === 0 ? `${yesterdaySafe / 1000}k` : String(yesterdaySafe)) : ''}
+                value={yesterdaySafe ? String(yesterdaySafe) : ''}
                 onChange={(e) => setYesterdaySafe(parseAmount(e.target.value))}
               />
             </div>
@@ -301,7 +435,7 @@ export default function CashBalancePage() {
                 type="text"
                 inputMode="decimal"
                 placeholder="Nhập két thực tế (vd: 20k)"
-                value={actualSafe ? (actualSafe % 1000 === 0 ? `${actualSafe / 1000}k` : String(actualSafe)) : ''}
+                value={actualSafe ? String(actualSafe) : ''}
                 onChange={(e) => setActualSafe(parseAmount(e.target.value))}
               />
             </div>

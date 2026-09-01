@@ -129,7 +129,6 @@ export function SubjectSidebar({
   }
 
   const handleDelete = async (subject: Subject) => {
-    if (!window.confirm(`Xóa môn "${subject.name}"?`)) return
     setSaving(true)
     try {
       await onDeleteSubject?.(subject.id)

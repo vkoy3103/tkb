@@ -139,7 +139,6 @@ export default function SchedulePage() {
       setCancelNote('')
     } catch (error) {
       console.error('Failed to cancel schedule:', error)
-      alert('Không thể đánh dấu nghỉ học')
     } finally {
       setCancelLoading(false)
     }
@@ -179,29 +178,31 @@ export default function SchedulePage() {
   const handleSaveShiftMoney = async (
     shift: WorkShift,
     values: { npcHours: number; otHours: number; extendCount: number; coefficient: number },
-    status: string,
   ) => {
     setSaving(true)
     try {
-      await syncWorkShiftExtras(shift.id, {
-        status,
+      const updated = await syncWorkShiftExtras(shift.id, {
         npc_hours: values.npcHours,
         ot_hours: values.otHours,
         extend_count: values.extendCount,
         coefficient: values.coefficient,
       })
-      await loadData()
+      // Cập nhật cục bộ — không gọi loadData() (tránh reset trang)
+      setWorkShifts((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
+      const extras = await fetchWorkExtras()
+      setWorkExtras(extras)
     } finally {
       setSaving(false)
     }
   }
 
   const handleDeleteShiftMoney = async (shift: WorkShift) => {
-    if (!window.confirm(`Xóa ca ${shift.shift_type} ngày ${shift.date}?`)) return
     setSaving(true)
     try {
       await deleteWorkShift(shift.id)
-      await loadData()
+      // Cập nhật cục bộ — không gọi loadData() (tránh reset trang)
+      setWorkShifts((prev) => prev.filter((s) => s.id !== shift.id))
+      setWorkExtras((prev) => prev.filter((e) => e.work_shift_id !== shift.id))
     } finally {
       setSaving(false)
     }
@@ -272,12 +273,11 @@ export default function SchedulePage() {
     )
 
     if (cancelOverride) {
-      if (confirm('Buổi học này đã được đánh dấu nghỉ. Bạn có muốn đi học lại không?')) {
-        try {
-          await handleDeleteOverride(cancelOverride.id)
-        } catch (error) {
-          alert('Không thể hoàn tác trạng thái nghỉ.')
-        }
+      // Bỏ popup hỏi — bấm vào buổi nghỉ là hoàn tác nghỉ luôn
+      try {
+        await handleDeleteOverride(cancelOverride.id)
+      } catch (error) {
+        console.error('Failed to undo cancelled lesson:', error)
       }
       return false
     }
@@ -322,7 +322,7 @@ export default function SchedulePage() {
       const updated = await updateSubject(id, payload)
       setSubjects((prev) => prev.map((s) => (s.id === id ? updated : s)))
     } catch {
-      alert('Không thể cập nhật môn học.')
+      console.error('Failed to update subject')
     }
   }
 
@@ -331,7 +331,7 @@ export default function SchedulePage() {
       await deleteSubject(id)
       setSubjects((prev) => prev.filter((s) => s.id !== id))
     } catch {
-      alert('Không thể xóa môn học.')
+      console.error('Failed to delete subject')
     }
   }
 
@@ -340,18 +340,20 @@ export default function SchedulePage() {
       const updated = await updateSchedule(scheduleId, data)
       setSchedules((current) => current.map((s) => (s.id === scheduleId ? updated : s)))
     } catch {
-      alert('Không thể cập nhật lịch học của môn.')
+      console.error('Failed to update schedule')
     }
   }
 
   const handleSaveWorkShiftWeek = async (toCreate: WeekShiftDraft[], toDeleteIds: number[]) => {
     setSaving(true)
     try {
-      await Promise.all([
-        ...toCreate.map((d) => createWorkShift(d)),
-        ...toDeleteIds.map((id) => deleteWorkShift(id)),
-      ])
-      await loadData()
+      const created = await Promise.all(toCreate.map((d) => createWorkShift(d)))
+      setWorkShifts((prev) => [...prev, ...created])
+      if (toDeleteIds.length > 0) {
+        await Promise.all(toDeleteIds.map((id) => deleteWorkShift(id)))
+        setWorkShifts((prev) => prev.filter((s) => !toDeleteIds.includes(s.id)))
+        setWorkExtras((prev) => prev.filter((e) => !toDeleteIds.includes(e.work_shift_id)))
+      }
     } finally {
       setSaving(false)
     }
@@ -381,8 +383,8 @@ export default function SchedulePage() {
   const handleSaveShiftFromCancel = async (data: Partial<WorkShift>) => {
     setSaving(true)
     try {
-      await createWorkShift(data)
-      await loadData()
+      const created = await createWorkShift(data)
+      setWorkShifts((prev) => [...prev, created])
       setIsShiftModalOpen(false)
     } finally {
       setSaving(false)

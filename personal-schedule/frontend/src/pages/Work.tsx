@@ -242,11 +242,12 @@ export default function WorkPage() {
     setSaving(true)
     try {
       if (shiftToEdit) {
-        await updateWorkShift(shiftToEdit.id, data)
+        const updated = await updateWorkShift(shiftToEdit.id, data)
+        setShifts((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
       } else {
-        await createWorkShift(data)
+        const created = await createWorkShift(data)
+        setShifts((prev) => [...prev, created])
       }
-      await load()
     } finally {
       setSaving(false)
     }
@@ -254,11 +255,12 @@ export default function WorkPage() {
 
   const handleDeleteShift = async () => {
     if (!shiftToEdit) return
-    if (!window.confirm('Xóa ca làm này và toàn bộ phụ thu liên quan?')) return
+    const id = shiftToEdit.id
     setSaving(true)
     try {
-      await deleteWorkShift(shiftToEdit.id)
-      await load()
+      await deleteWorkShift(id)
+      setShifts((prev) => prev.filter((s) => s.id !== id))
+      setExtras((prev) => prev.filter((e) => e.work_shift_id !== id))
     } finally {
       setSaving(false)
     }
@@ -275,11 +277,13 @@ export default function WorkPage() {
     setSaving(true)
     try {
       if (extraToEdit) {
-        await updateWorkExtra(extraToEdit.id, data)
+        const updated = await updateWorkExtra(extraToEdit.id, data)
+        // Cập nhật state cục bộ — không tải lại toàn bộ trang
+        setExtras((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))
       } else if (extraTargetShift) {
-        await createWorkExtra({ ...data, work_shift_id: extraTargetShift.id })
+        const created = await createWorkExtra({ ...data, work_shift_id: extraTargetShift.id })
+        setExtras((prev) => [...prev, created])
       }
-      await load()
     } finally {
       setSaving(false)
     }
@@ -287,11 +291,12 @@ export default function WorkPage() {
 
   const handleDeleteExtra = async () => {
     if (!extraToEdit) return
-    if (!window.confirm('Xóa khoản phụ thu này?')) return
+    const id = extraToEdit.id
     setSaving(true)
     try {
-      await deleteWorkExtra(extraToEdit.id)
-      await load()
+      await deleteWorkExtra(id)
+      // Xóa khỏi state cục bộ — không tải lại toàn bộ trang
+      setExtras((prev) => prev.filter((e) => e.id !== id))
     } finally {
       setSaving(false)
     }
@@ -305,50 +310,52 @@ export default function WorkPage() {
   const handleSaveShiftMoney = async (
     shift: WorkShift,
     values: { npcHours: number; otHours: number; extendCount: number; coefficient: number },
-    status: string,
   ) => {
     setSaving(true)
     try {
-      await syncWorkShiftExtras(shift.id, {
-        status,
+      const updated = await syncWorkShiftExtras(shift.id, {
         npc_hours: values.npcHours,
         ot_hours: values.otHours,
         extend_count: values.extendCount,
         coefficient: values.coefficient,
       })
-      await load()
+      // Cập nhật cục bộ — không tải lại toàn bộ trang
+      setShifts((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
+      const extras = await fetchWorkExtras()
+      setExtras(extras)
     } finally {
       setSaving(false)
     }
   }
 
   const handleDeleteShiftMoney = async (shift: WorkShift) => {
-    if (!window.confirm(`Xóa ca ${shift.shift_type} ngày ${shift.date}?`)) return
     setSaving(true)
     try {
       await deleteWorkShift(shift.id)
-      await load()
+      setShifts((prev) => prev.filter((s) => s.id !== shift.id))
+      setExtras((prev) => prev.filter((e) => e.work_shift_id !== shift.id))
     } finally {
       setSaving(false)
     }
   }
 
   // ----- Handlers: thêm ca theo tuần -----
-  const handleSaveWeekShifts = async (drafts: WeekShiftDraft[]) => {    setSaving(true)
+  const handleSaveWeekShifts = async (drafts: WeekShiftDraft[]) => {
+    setSaving(true)
     try {
-      await Promise.all(drafts.map((d) => createWorkShift(d)))
-      await load()
+      const created = await Promise.all(drafts.map((d) => createWorkShift(d)))
+      setShifts((prev) => [...prev, ...created])
     } finally {
       setSaving(false)
     }
   }
 
   const handleQuickDeleteShift = async (shift: WorkShift) => {
-    if (!window.confirm(`Xóa ca ${shift.shift_type} ngày ${shift.date}?`)) return
     setSaving(true)
     try {
       await deleteWorkShift(shift.id)
-      await load()
+      setShifts((prev) => prev.filter((s) => s.id !== shift.id))
+      setExtras((prev) => prev.filter((e) => e.work_shift_id !== shift.id))
     } finally {
       setSaving(false)
     }

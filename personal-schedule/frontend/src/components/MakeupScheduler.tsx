@@ -109,11 +109,7 @@ export function MakeupScheduler({
         note: formData.note || null,
       }
       await onSave(payload)
-      setToast({ message: 'Lưu lịch học bù thành công!', type: 'success' })
-      setTimeout(() => {
-        onClose()
-        setToast(null)
-      }, 1000)
+      onClose()
     } catch (error) {
       setToast({
         message: `Lỗi: ${(error as Error).message}`,
@@ -126,11 +122,7 @@ export function MakeupScheduler({
     if (!overrideToEdit || !onDelete) return
     try {
       await onDelete(overrideToEdit.id)
-      setToast({ message: 'Đã xóa lịch học bù!', type: 'success' })
-      setTimeout(() => {
-        onClose()
-        setToast(null)
-      }, 1000)
+      onClose()
     } catch (error) {
       setToast({
         message: `Lỗi: ${(error as Error).message}`,

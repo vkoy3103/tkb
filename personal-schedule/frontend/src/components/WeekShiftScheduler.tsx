@@ -285,11 +285,7 @@ export function WeekShiftScheduler({
       const parts: string[] = []
       if (toCreate.length > 0) parts.push(`thêm ${toCreate.length} ca`)
       if (toDeleteIds.length > 0) parts.push(`xóa ${toDeleteIds.length} ca`)
-      setToast({ message: `Đã ${parts.join(', ')}!`, type: 'success' })
-      setTimeout(() => {
-        onClose()
-        setToast(null)
-      }, 900)
+      onClose()
     } catch (error) {
       setToast({ message: `Lỗi: ${(error as Error).message}`, type: 'error' })
     }

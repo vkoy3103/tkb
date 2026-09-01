@@ -169,11 +169,8 @@ export function WorkShiftEditor({
         coefficient: Number(formData.coefficient) || 1,
         note: formData.note?.trim() || null,
       })
-      setToast({ message: 'Lưu ca làm thành công!', type: 'success' })
-      setTimeout(() => {
-        onClose()
-        setToast(null)
-      }, 1000)
+      // Đóng modal NGAY sau khi lưu thành công — không hiện thông báo popup
+      onClose()
     } catch (error) {
       setToast({
         message: `Lỗi: ${(error as Error).message}`,
@@ -186,11 +183,7 @@ export function WorkShiftEditor({
     if (!onDelete) return
     try {
       await onDelete()
-      setToast({ message: 'Đã xóa ca làm!', type: 'success' })
-      setTimeout(() => {
-        onClose()
-        setToast(null)
-      }, 1000)
+      onClose()
     } catch (error) {
       setToast({ message: `Lỗi: ${(error as Error).message}`, type: 'error' })
     }

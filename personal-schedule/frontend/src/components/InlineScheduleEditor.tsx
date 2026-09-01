@@ -121,11 +121,7 @@ export function InlineScheduleEditor({
 
     try {
       await onSave(payload)
-      setToast({ message: 'Lưu thành công!', type: 'success' })
-      setTimeout(() => {
-        onClose()
-        setToast(null)
-      }, 1000)
+      onClose()
     } catch (error) {
       setToast({
         message: `Lỗi: ${(error as Error).message}`,

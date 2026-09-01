@@ -803,3 +803,231 @@
 .schedule-control-group:hover {
   background: #f1f5f9;
 }
+
+/* =========================
+   SHIFT MONEY EDITOR (modal Tiền ca)
+========================= */
+.schedule-modal--money {
+  max-width: 580px;
+}
+
+.sm-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+  border: 1px solid #ddd6fe;
+}
+
+.sm-header__badge {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 12px;
+  border-radius: 999px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.35);
+}
+
+.sm-header__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sm-header__date {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.sm-header__time {
+  font-size: 12.5px;
+  color: #6d28d9;
+  font-weight: 600;
+}
+
+.sm-header__hours {
+  font-size: 15px;
+  font-weight: 800;
+  color: #7c3aed;
+  white-space: nowrap;
+  background: #ffffff;
+  border: 1px solid #ddd6fe;
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+
+/* Chọn hệ số ca — nút chia đoạn */
+.sm-coef {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sm-coef__label {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.sm-coef__btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sm-coef__btn {
+  flex: 1;
+  min-width: 52px;
+  padding: 9px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.sm-coef__btn:hover {
+  border-color: #c4b5fd;
+  background: #faf5ff;
+}
+
+.sm-coef__btn--active {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  border-color: #6d28d9;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35);
+}
+
+.sm-coef__hint {
+  margin: 0;
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+
+/* 3 ô phụ thu NPC / OT / EXTEND */
+.sm-extras {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.sm-extra {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: box-shadow 0.15s ease;
+}
+
+.sm-extra:hover {
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+
+.sm-extra--npc {
+  border-top: 3px solid #3b82f6;
+}
+.sm-extra--ot {
+  border-top: 3px solid #ef4444;
+}
+.sm-extra--extend {
+  border-top: 3px solid #f59e0b;
+}
+
+.sm-extra__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sm-extra__icon {
+  font-size: 15px;
+}
+
+.sm-extra__name {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.sm-extra__amount {
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.sm-extra--npc .sm-extra__amount {
+  color: #2563eb;
+}
+.sm-extra--ot .sm-extra__amount {
+  color: #dc2626;
+}
+.sm-extra--extend .sm-extra__amount {
+  color: #d97706;
+}
+
+.sm-extra__rate {
+  font-size: 11px;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.sm-extra__error {
+  font-size: 11px;
+  color: #dc2626;
+  text-align: center;
+}
+
+/* Tổng tiền */
+.sm-total {
+  border-radius: 16px;
+  padding: 16px;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border: 1px solid #a7f3d0;
+  text-align: center;
+}
+
+.sm-total__label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: #047857;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sm-total__amount {
+  margin: 6px 0 0;
+  font-size: 30px;
+  font-weight: 900;
+  color: #065f46;
+  line-height: 1.1;
+}
+
+.sm-total__breakdown {
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  color: #047857;
+  line-height: 1.5;
+}
+
+@media (max-width: 600px) {
+  .sm-extras {
+    grid-template-columns: 1fr;
+  }
+  .sm-header {
+    flex-wrap: wrap;
+  }
+}
