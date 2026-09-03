@@ -12,6 +12,7 @@ from app.schemas.work_shift import (
 from app.services.auth_service import get_current_user
 from app.services.work_shift_service import (
     create_work_shift,
+    create_work_shifts_bulk,
     delete_work_shift,
     get_work_shift,
     get_work_shifts,
@@ -46,6 +47,16 @@ def create_work_shift_endpoint(
 ):
     """Create a new work shift with scheduled and actual time information."""
     return create_work_shift(db, current_user.id, payload)
+
+
+@router.post("/bulk", response_model=list[WorkShiftRead])
+def create_work_shifts_bulk_endpoint(
+    payloads: list[WorkShiftCreate],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Tạo nhiều ca làm trong 1 request (import hàng loạt — nhanh hơn gọi từng ca)."""
+    return create_work_shifts_bulk(db, current_user.id, payloads)
 
 
 @router.get("/{work_shift_id}", response_model=WorkShiftRead)

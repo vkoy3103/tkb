@@ -5,7 +5,14 @@ from app.database import SessionLocal
 from app.models.user import User
 from app.schemas.subject import SubjectCreate, SubjectRead, SubjectUpdate
 from app.services.auth_service import get_current_user
-from app.services.subject_service import create_subject, delete_subject, get_subject, get_subjects, update_subject
+from app.services.subject_service import (
+    create_subject,
+    create_subjects_bulk,
+    delete_subject,
+    get_subject,
+    get_subjects,
+    update_subject,
+)
 
 router = APIRouter(prefix="/subjects", tags=["subjects"])
 
@@ -34,6 +41,16 @@ def create_subject_endpoint(
 ):
     """Create a new subject with code, name, credits, teacher, room, and color."""
     return create_subject(db, current_user.id, payload)
+
+
+@router.post("/bulk", response_model=list[SubjectRead])
+def create_subjects_bulk_endpoint(
+    payloads: list[SubjectCreate],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Tạo nhiều môn trong 1 request (import hàng loạt — nhanh hơn gọi từng môn)."""
+    return create_subjects_bulk(db, current_user.id, payloads)
 
 
 @router.get("/{subject_id}", response_model=SubjectRead)

@@ -11,6 +11,13 @@ export async function createSchedule(schedule: Omit<Schedule, 'id' | 'created_at
   return response.data
 }
 
+export async function createSchedulesBulk(
+  schedules: Array<Omit<Schedule, 'id' | 'created_at' | 'updated_at'>>,
+) {
+  const response = await api.post<Schedule[]>('/schedules/bulk', schedules)
+  return response.data
+}
+
 export async function updateSchedule(
   scheduleId: number,
   schedule: Partial<Omit<Schedule, 'id' | 'created_at' | 'updated_at'>>,

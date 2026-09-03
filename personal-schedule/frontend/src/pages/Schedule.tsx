@@ -22,7 +22,13 @@ import {
   updateScheduleOverride,
 } from '../services/scheduleOverrideApi'
 import { deleteSubject, fetchSubjects, updateSubject } from '../services/subjectApi'
-import { createWorkShift, deleteWorkShift, fetchWorkShifts, syncWorkShiftExtras } from '../services/workShiftApi'
+import {
+  createWorkShift,
+  createWorkShiftsBulk,
+  deleteWorkShift,
+  fetchWorkShifts,
+  syncWorkShiftExtras,
+} from '../services/workShiftApi'
 import { fetchWorkExtras } from '../services/workExtraApi'
 import { fetchSettings } from '../services/settingsApi'
 import type {
@@ -347,7 +353,8 @@ export default function SchedulePage() {
   const handleSaveWorkShiftWeek = async (toCreate: WeekShiftDraft[], toDeleteIds: number[]) => {
     setSaving(true)
     try {
-      const created = await Promise.all(toCreate.map((d) => createWorkShift(d)))
+      // Tạo toàn bộ ca trong 1 request (nhanh hơn nhiều)
+      const created = await createWorkShiftsBulk(toCreate)
       setWorkShifts((prev) => [...prev, ...created])
       if (toDeleteIds.length > 0) {
         await Promise.all(toDeleteIds.map((id) => deleteWorkShift(id)))

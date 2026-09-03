@@ -7,6 +7,7 @@ import { WorkQuickImportScheduler } from '../components/WorkQuickImportScheduler
 import type { WeekShiftDraft } from '../components/WeekShiftScheduler'
 import {
   createWorkShift,
+  createWorkShiftsBulk,
   deleteWorkShift,
   fetchWorkShifts,
   syncWorkShiftExtras,
@@ -343,7 +344,8 @@ export default function WorkPage() {
   const handleSaveWeekShifts = async (drafts: WeekShiftDraft[]) => {
     setSaving(true)
     try {
-      const created = await Promise.all(drafts.map((d) => createWorkShift(d)))
+      // Tạo toàn bộ ca trong 1 request (nhanh hơn nhiều)
+      const created = await createWorkShiftsBulk(drafts)
       setShifts((prev) => [...prev, ...created])
     } finally {
       setSaving(false)

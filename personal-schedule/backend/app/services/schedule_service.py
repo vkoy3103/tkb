@@ -48,6 +48,23 @@ def create_schedule(db: Session, user_id: int, payload: ScheduleCreate) -> Sched
     return schedule
 
 
+def create_schedules_bulk(db: Session, user_id: int, payloads: list[ScheduleCreate]) -> list[Schedule]:
+    """Tạo nhiều lịch học trong MỘT transaction (nhanh cho import hàng loạt)."""
+    ids = {p.subject_id for p in payloads}
+    owned: set[int] = set()
+    if ids:
+        owned = {row[0] for row in db.query(Subject.id).filter(Subject.id.in_(ids), Subject.user_id == user_id).all()}
+    for p in payloads:
+        if p.subject_id not in owned:
+            raise HTTPException(status_code=404, detail=f"Subject {p.subject_id} not found")
+    schedules = [Schedule(user_id=user_id, **_normalize_time_fields(p.model_dump())) for p in payloads]
+    db.add_all(schedules)
+    db.commit()
+    for s in schedules:
+        db.refresh(s)
+    return schedules
+
+
 def update_schedule(db: Session, schedule: Schedule, payload: ScheduleUpdate) -> Schedule:
     update_data = payload.model_dump(exclude_unset=True)
     if "subject_id" in update_data and update_data["subject_id"] is not None:

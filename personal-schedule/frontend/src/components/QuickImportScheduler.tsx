@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import type { Period, Schedule, Subject } from '../types'
-import { createSchedule } from '../services/scheduleApi'
-import { createSubject } from '../services/subjectApi'
+import { createSchedulesBulk } from '../services/scheduleApi'
+import { createSubjectsBulk } from '../services/subjectApi'
 import '../styles/quick-import.css'
 
 interface QuickImportSchedulerProps {
@@ -422,30 +422,30 @@ export function QuickImportScheduler({
     }
     setSaving(true)
     setError('')
-    let subjectCount = 0
-    let scheduleCount = 0
     try {
-      for (const row of addableRows) {
-        const subjectPayload: Omit<Subject, 'id' | 'created_at' | 'updated_at'> = {
-          code: row.code || null,
-          name: row.name.trim(),
-          credits: row.credits || 0,
-          teacher: row.teacher || null,
-          default_room: row.room || null,
-          color: row.color,
-          week_start: row.week_start === '' ? null : Number(row.week_start),
-          week_end: row.week_end === '' ? null : Number(row.week_end),
-          note: null,
-          is_active: true,
-        }
-        const subject = await createSubject(subjectPayload)
-        subjectCount += 1
+      // 1) Tạo TOÀN BỘ môn học trong 1 request (nhanh hơn nhiều so với từng môn)
+      const subjectPayloads: Array<Omit<Subject, 'id' | 'created_at' | 'updated_at'>> = addableRows.map((row) => ({
+        code: row.code || null,
+        name: row.name.trim(),
+        credits: row.credits || 0,
+        teacher: row.teacher || null,
+        default_room: row.room || null,
+        color: row.color,
+        week_start: row.week_start === '' ? null : Number(row.week_start),
+        week_end: row.week_end === '' ? null : Number(row.week_end),
+        note: null,
+        is_active: true,
+      }))
+      const subjects = await createSubjectsBulk(subjectPayloads)
 
+      // 2) Tạo TOÀN BỘ lịch học trong 1 request (chỉ các môn có lịch)
+      const schedulePayloads: Array<Omit<Schedule, 'id' | 'created_at' | 'updated_at'>> = []
+      addableRows.forEach((row, idx) => {
         const hasPeriod = row.start_period !== '' && row.end_period !== ''
         const hasTime = row.start_time !== '' && row.end_time !== ''
         if (row.weekday !== '' && (hasPeriod || hasTime)) {
-          const schedulePayload: Omit<Schedule, 'id' | 'created_at' | 'updated_at'> = {
-            subject_id: subject.id,
+          schedulePayloads.push({
+            subject_id: subjects[idx].id,
             weekday: Number(row.weekday),
             start_period: hasPeriod ? Number(row.start_period) : null,
             end_period: hasPeriod ? Number(row.end_period) : null,
@@ -455,20 +455,21 @@ export function QuickImportScheduler({
             week_start: row.week_start === '' ? null : Number(row.week_start),
             week_end: row.week_end === '' ? null : Number(row.week_end),
             note: null,
-          }
-          await createSchedule(schedulePayload)
-          scheduleCount += 1
+          })
         }
-      }
+      })
+      if (schedulePayloads.length > 0) await createSchedulesBulk(schedulePayloads)
+
+      const subjectCount = subjects.length
       setSuccessCount(subjectCount)
       setError(
-        scheduleCount < subjectCount
-          ? `Đã thêm ${subjectCount} môn (${scheduleCount} có lịch; ${subjectCount - scheduleCount} môn chưa có lịch — bạn tự xếp trên trang Schedule).`
+        schedulePayloads.length < subjectCount
+          ? `Đã thêm ${subjectCount} môn (${schedulePayloads.length} có lịch; ${subjectCount - schedulePayloads.length} môn chưa có lịch — bạn tự xếp trên trang Schedule).`
           : '',
       )
       await onDone()
     } catch (err) {
-      setError(`Có lỗi khi lưu (đã thêm ${subjectCount} môn): ${(err as Error).message}`)
+      setError(`Có lỗi khi lưu: ${(err as Error).message}`)
     } finally {
       setSaving(false)
     }

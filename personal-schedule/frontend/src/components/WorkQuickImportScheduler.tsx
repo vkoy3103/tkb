@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { createWorkShift } from '../services/workShiftApi'
+import { createWorkShiftsBulk } from '../services/workShiftApi'
 import type { WorkShift } from '../types'
 import '../styles/quick-import.css'
 
@@ -320,26 +320,24 @@ export function WorkQuickImportScheduler({
     }
     setSaving(true)
     setError('')
-    let count = 0
     try {
-      for (const row of addableRows) {
-        await createWorkShift({
-          date: row.date,
-          shift_type: row.shift_type,
-          scheduled_start: row.scheduled_start,
-          scheduled_end: row.scheduled_end,
-          status: 'scheduled',
-          note: row.note || null,
-        })
-        count += 1
-      }
-      setSuccessCount(count)
+      // Tạo TOÀN BỘ ca làm trong 1 request (nhanh hơn nhiều so với từng ca)
+      const payloads = addableRows.map((row) => ({
+        date: row.date,
+        shift_type: row.shift_type,
+        scheduled_start: row.scheduled_start,
+        scheduled_end: row.scheduled_end,
+        status: 'scheduled',
+        note: row.note || null,
+      }))
+      const created = await createWorkShiftsBulk(payloads)
+      setSuccessCount(created.length)
       setRows([])
       setRawText('')
       setName('')
       await onDone()
     } catch (err) {
-      setError(`Có lỗi khi lưu (đã thêm ${count} ca): ${(err as Error).message}`)
+      setError(`Có lỗi khi lưu: ${(err as Error).message}`)
     } finally {
       setSaving(false)
     }

@@ -24,6 +24,16 @@ def create_subject(db: Session, user_id: int, payload: SubjectCreate) -> Subject
     return subject
 
 
+def create_subjects_bulk(db: Session, user_id: int, payloads: list[SubjectCreate]) -> list[Subject]:
+    """Tạo nhiều môn trong MỘT transaction (nhanh cho import hàng loạt)."""
+    subjects = [Subject(user_id=user_id, **p.model_dump()) for p in payloads]
+    db.add_all(subjects)
+    db.commit()
+    for s in subjects:
+        db.refresh(s)
+    return subjects
+
+
 def update_subject(db: Session, subject: Subject, payload: SubjectUpdate) -> Subject:
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(subject, field, value)

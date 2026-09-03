@@ -43,6 +43,18 @@ def create_work_shift(db: Session, user_id: int, payload: WorkShiftCreate) -> Wo
     return work_shift
 
 
+def create_work_shifts_bulk(db: Session, user_id: int, payloads: list[WorkShiftCreate]) -> list[WorkShift]:
+    """Tạo nhiều ca làm trong MỘT transaction (nhanh cho import hàng loạt)."""
+    for p in payloads:
+        validate_shift_times(p.scheduled_start, p.scheduled_end, p.actual_start, p.actual_end)
+    shifts = [WorkShift(user_id=user_id, **p.model_dump()) for p in payloads]
+    db.add_all(shifts)
+    db.commit()
+    for s in shifts:
+        db.refresh(s)
+    return shifts
+
+
 def update_work_shift(db: Session, work_shift: WorkShift, payload: WorkShiftUpdate) -> WorkShift:
     update_data = payload.model_dump(exclude_unset=True)
     if "scheduled_start" in update_data or "scheduled_end" in update_data:

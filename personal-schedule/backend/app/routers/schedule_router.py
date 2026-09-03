@@ -5,7 +5,14 @@ from app.database import SessionLocal
 from app.models.user import User
 from app.schemas.schedule import ScheduleCreate, ScheduleRead, ScheduleUpdate
 from app.services.auth_service import get_current_user
-from app.services.schedule_service import create_schedule, delete_schedule, get_schedule, get_schedules, update_schedule
+from app.services.schedule_service import (
+    create_schedule,
+    create_schedules_bulk,
+    delete_schedule,
+    get_schedule,
+    get_schedules,
+    update_schedule,
+)
 
 router = APIRouter(prefix="/schedules", tags=["schedules"])
 
@@ -34,6 +41,16 @@ def create_schedule_endpoint(
 ):
     """Create a class schedule mapping a subject to a weekday, time range, room, and week range."""
     return create_schedule(db, current_user.id, payload)
+
+
+@router.post("/bulk", response_model=list[ScheduleRead])
+def create_schedules_bulk_endpoint(
+    payloads: list[ScheduleCreate],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Tạo nhiều lịch học trong 1 request (import hàng loạt — nhanh hơn gọi từng lịch)."""
+    return create_schedules_bulk(db, current_user.id, payloads)
 
 
 @router.get("/{schedule_id}", response_model=ScheduleRead)

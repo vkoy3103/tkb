@@ -11,6 +11,13 @@ export async function createWorkShift(payload: Partial<Omit<WorkShift, 'id' | 'c
   return response.data
 }
 
+export async function createWorkShiftsBulk(
+  payloads: Array<Partial<Omit<WorkShift, 'id' | 'created_at' | 'updated_at'>>>,
+) {
+  const response = await api.post<WorkShift[]>('/work-shifts/bulk', payloads)
+  return response.data
+}
+
 export async function updateWorkShift(workShiftId: number, payload: Partial<Omit<WorkShift, 'id' | 'created_at' | 'updated_at'>>) {
   const response = await api.put<WorkShift>(`/work-shifts/${workShiftId}`, payload)
   return response.data
