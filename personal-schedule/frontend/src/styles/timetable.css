@@ -846,7 +846,12 @@
 
 @media (max-width: 1024px) {
   .timetable-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .timetable-sidebar,
+  .timetable-board {
+    min-width: 0;
   }
 
   .timetable-toolbar {

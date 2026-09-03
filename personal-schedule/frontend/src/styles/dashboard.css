@@ -485,3 +485,22 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Điện thoại: bảng chi tiết lương cuộn ngang bên trong panel, không làm vỡ trang */
+@media (max-width: 640px) {
+  .dashboard-salary__content {
+    overflow-x: auto;
+  }
+
+  .dashboard-salary__content > * {
+    min-width: 0;
+  }
+
+  .dashboard-salary__total {
+    min-width: 100%;
+  }
+
+  .dashboard-salary__table {
+    white-space: nowrap;
+  }
+}

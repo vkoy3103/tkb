@@ -275,7 +275,7 @@ export default function Subjects() {
         </div>
       </header>
 
-      <div className="pg-grid pg-grid--form" style={{ gridTemplateColumns: '1.2fr 1fr' }}>
+      <div className="pg-grid pg-grid--form pg-grid--form-split">
         <section className="pg-card">
           <div className="pg-card__head">
             <div>

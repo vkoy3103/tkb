@@ -247,3 +247,84 @@ body {
     height: auto;
   }
 }
+
+/* ---------- Điện thoại: thu gọn menu lên trên cùng (dễ thao tác 1 tay) ---------- */
+@media (max-width: 720px) {
+  .app-container {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 8px;
+    z-index: 40;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    padding: 10px 12px;
+    border-radius: 16px;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);
+  }
+
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 0;
+    margin-right: auto;
+  }
+
+  .sidebar-label {
+    display: none;
+  }
+
+  .sidebar-title {
+    margin-top: 0;
+    font-size: 17px;
+  }
+
+  .sidebar-nav {
+    order: 3;
+    flex-direction: row;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 6px;
+    padding: 2px 0 4px;
+  }
+
+  .sidebar-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-link {
+    white-space: nowrap;
+    padding: 8px 12px;
+    font-size: 13px;
+    border-radius: 999px;
+  }
+
+  .sidebar-user {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+
+  .sidebar-user__info {
+    display: none;
+  }
+
+  .sidebar-user__avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .sidebar-user__logout {
+    width: 28px;
+    height: 28px;
+  }
+}

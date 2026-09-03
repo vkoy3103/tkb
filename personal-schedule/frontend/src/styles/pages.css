@@ -142,13 +142,21 @@
   grid-template-columns: 1fr 1fr;
 }
 
+/* Subjects: form thêm môn (rộng) + danh sách — tự thu 1 cột trên mobile */
+.pg-grid--form-split {
+  grid-template-columns: 1.2fr 1fr;
+}
+
 .pg-grid--form .pg-field--full {
   grid-column: 1 / -1;
 }
 
 @media (max-width: 720px) {
-  .pg-grid--form {
-    grid-template-columns: 1fr;
+  /* !important: thắng rule base sau khi minify (Lightning CSS xếp lại thứ tự), tránh vỡ 2 cột trên mobile */
+  .pg-grid--form,
+  .pg-grid--form-split,
+  .pg-grid--form.pg-grid--form-split {
+    grid-template-columns: minmax(0, 1fr) !important;
   }
 }
 
@@ -1040,11 +1048,39 @@
   .pg-oi__form {
     gap: 0.5rem;
   }
-  .pg-oi__date,
-  .pg-oi__amountwrap {
-    width: 8.6rem;
+
+  /* Ngày + Số tiền cùng 1 hàng; Ghi chú 1 hàng; nút Thêm full-width (dễ bấm) */
+  .pg-oi__date {
+    order: 1;
+    flex: 1 1 45%;
+    width: auto;
+    min-width: 0;
   }
+
+  .pg-oi__amountwrap {
+    order: 2;
+    flex: 1 1 45%;
+    width: auto;
+    min-width: 0;
+  }
+
+  .pg-oi__note {
+    order: 3;
+    flex: 1 1 100%;
+  }
+
+  .pg-oi__form .pg-btn {
+    order: 4;
+    flex: 1 1 100%;
+    justify-content: center;
+    padding: 0.75rem;
+  }
+
   .pg-oi__row {
     flex-wrap: wrap;
+  }
+
+  .pg-oi__row .pg-oi__amount {
+    margin-left: auto;
   }
 }
