@@ -872,6 +872,26 @@
   }
 }
 
+/* Màn rất hẹp (≤400px): thu gọn chữ + cho phép pill thu nhập xuống dòng thay vì tràn ngang */
+@media (max-width: 400px) {
+  .pg-monthnav__month {
+    font-size: 0.98rem;
+  }
+
+  .pg-monthnav__income {
+    font-size: 0.8rem;
+    padding: 0.22rem 0.55rem;
+    white-space: normal;
+    text-align: center;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .pg-monthnav__count {
+    font-size: 0.72rem;
+  }
+}
+
 /* ---------- Thu nhập khác (Work — thưởng/phụ cấp nhập tay) ---------- */
 .pg-oi__total {
   display: inline-flex;

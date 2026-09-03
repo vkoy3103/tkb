@@ -120,7 +120,10 @@ body {
 }
 
 .nav-link {
-  display: block; /* block */
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
   padding: 12px 16px; /* px-4 py-3 */
   border-radius: 16px; /* rounded-2xl */
   text-decoration: none;
@@ -129,6 +132,25 @@ body {
   color: #334155; /* text-slate-700 */
   cursor: pointer;
   transition: all 0.2s ease-in-out; /* transition */
+}
+
+.nav-link__icon {
+  font-size: 1.05rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.nav-link__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Thanh trên (tên app) & thanh điều hướng dưới — chỉ hiện trên màn hình nhỏ */
+.m-topbar,
+.m-nav {
+  display: none;
 }
 
 .nav-link:hover {
@@ -234,97 +256,153 @@ body {
   }
 }
 
+/* =========================================================
+   RESPONSIVE — MÀN HÌNH NHỎ (tablet + điện thoại)
+   - Ẩn sidebar trái.
+   - Thanh trên: tên app + avatar.
+   - THANH ĐIỀU HƯỚNG Ở DƯỚI CÙNG (bottom nav) để chuyển trang.
+   Desktop (> 900px) giữ nguyên sidebar đầy đủ luôn hiện.
+========================================================= */
 @media (max-width: 900px) {
   .app-container {
     flex-direction: column;
-    padding: 16px;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
   }
 
+  /* Ẩn sidebar trái trên màn hình nhỏ */
   .sidebar {
-    position: static;
-    width: 100%;
-    max-width: none;
-    height: auto;
+    display: none;
+  }
+
+  /* Thanh trên: tên app + avatar + đăng xuất */
+  .m-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .m-topbar__brand {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .m-topbar__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .m-topbar__avatar {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .m-topbar__logout {
+    width: 32px;
+    height: 32px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #64748b;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .m-topbar__logout:hover {
+    background: #fef2f2;
+    color: #dc2626;
+    border-color: #fecaca;
+  }
+
+  .main-content {
+    padding: 12px;
+    padding-bottom: 92px; /* chừa chỗ cho thanh điều hướng dưới */
+  }
+
+  /* Thanh điều hướng dưới cùng (bottom nav) */
+  .m-nav {
+    display: flex;
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    z-index: 50;
+    background: rgba(255, 255, 255, 0.97);
+    backdrop-filter: blur(10px);
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.18);
+    padding: 6px;
+    justify-content: space-between;
+  }
+
+  .m-nav__item {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 2px;
+    border-radius: 14px;
+    text-decoration: none;
+    color: #64748b;
+    font-size: 0.62rem;
+    font-weight: 600;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .m-nav__item:hover {
+    background: #f8fafc;
+  }
+
+  .m-nav__icon {
+    font-size: 1.3rem;
+    line-height: 1;
+  }
+
+  .m-nav__item.active {
+    color: #7c3aed;
+    background: #f5f3ff;
   }
 }
 
-/* ---------- Điện thoại: thu gọn menu lên trên cùng (dễ thao tác 1 tay) ---------- */
-@media (max-width: 720px) {
-  .app-container {
-    padding: 10px;
-    gap: 10px;
-  }
+/* An toàn cho điện thoại có vùng "tai thỏ" (notch) */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  @media (max-width: 900px) {
+    .m-nav {
+      bottom: 10px;
+    }
 
-  .sidebar {
-    position: sticky;
-    top: 8px;
-    z-index: 40;
-    flex-direction: row;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 6px 10px;
-    padding: 10px 12px;
-    border-radius: 16px;
-    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);
-  }
-
-  .sidebar-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 0;
-    margin-right: auto;
-  }
-
-  .sidebar-label {
-    display: none;
-  }
-
-  .sidebar-title {
-    margin-top: 0;
-    font-size: 17px;
-  }
-
-  .sidebar-nav {
-    order: 3;
-    flex-direction: row;
-    width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    gap: 6px;
-    padding: 2px 0 4px;
-  }
-
-  .sidebar-nav::-webkit-scrollbar {
-    display: none;
-  }
-
-  .nav-link {
-    white-space: nowrap;
-    padding: 8px 12px;
-    font-size: 13px;
-    border-radius: 999px;
-  }
-
-  .sidebar-user {
-    margin-top: 0;
-    padding-top: 0;
-    border-top: none;
-  }
-
-  .sidebar-user__info {
-    display: none;
-  }
-
-  .sidebar-user__avatar {
-    width: 32px;
-    height: 32px;
-    font-size: 14px;
-  }
-
-  .sidebar-user__logout {
-    width: 28px;
-    height: 28px;
+    .main-content {
+      padding-bottom: calc(92px + env(safe-area-inset-bottom));
+    }
   }
 }
