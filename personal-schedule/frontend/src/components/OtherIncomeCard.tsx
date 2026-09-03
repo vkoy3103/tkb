@@ -31,6 +31,23 @@ function dayLong(dateStr: string): string {
   return `${wd}, ${dayShort(dateStr)}/${dateStr.slice(0, 4)}`
 }
 
+/**
+ * Gõ tắt số tiền:
+ * - 200k → 200000 (k = thêm 3 số 0)
+ * - 1m   → 1000000 (m = thêm 6 số 0)
+ * - 1.5k → 1500
+ * Các ký tự khác không phải chữ số sẽ bị bỏ đi.
+ */
+function expandAmountText(raw: string): string {
+  const t = raw.trim()
+  const match = t.toLowerCase().match(/^(\d+(?:\.\d+)?)\s*([km])$/)
+  if (match) {
+    const multiplier = match[2] === 'k' ? 1000 : 1000000
+    return String(Math.round(parseFloat(match[1]) * multiplier))
+  }
+  return t.replace(/[^\d]/g, '')
+}
+
 export function OtherIncomeCard({ items, monthKey, monthShort, monthLabel, isLoading, onAdd, onUpdate, onDelete }: OtherIncomeCardProps) {
   const today = useMemo(todayStr, [])
 
@@ -124,13 +141,14 @@ export function OtherIncomeCard({ items, monthKey, monthShort, monthLabel, isLoa
         />
         <div className="pg-oi__amountwrap">
           <input
-            type="number"
+            type="text"
             inputMode="numeric"
-            min={0}
+            autoComplete="off"
             className="pg-input pg-oi__amount"
-            placeholder="Số tiền"
+            placeholder="Số tiền (vd: 200k)"
+            title="Gõ 200k = 200.000đ · 1m = 1.000.000đ"
             value={addAmount}
-            onChange={(e) => setAddAmount(e.target.value)}
+            onChange={(e) => setAddAmount(expandAmountText(e.target.value))}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && addValid) handleAdd()
             }}
@@ -173,12 +191,13 @@ export function OtherIncomeCard({ items, monthKey, monthShort, monthLabel, isLoa
                 />
                 <div className="pg-oi__amountwrap">
                   <input
-                    type="number"
+                    type="text"
                     inputMode="numeric"
-                    min={0}
+                    autoComplete="off"
                     className="pg-input pg-oi__amount"
+                    title="Gõ 200k = 200.000đ · 1m = 1.000.000đ"
                     value={editAmount}
-                    onChange={(e) => setEditAmount(e.target.value)}
+                    onChange={(e) => setEditAmount(expandAmountText(e.target.value))}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') saveEdit(item.id)
                       if (e.key === 'Escape') cancelEdit()
