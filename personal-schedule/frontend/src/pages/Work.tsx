@@ -157,10 +157,23 @@ export default function WorkPage() {
     [extraMap, rates, otStartMinutes],
   )
 
-  const monthKey = useMemo(() => {
-    const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  }, [])
+  // ----- Chọn tháng để xem (lịch làm + thu nhập theo tháng) -----
+  const [viewMonth, setViewMonth] = useState<Date>(() => {
+    const n = new Date()
+    return new Date(n.getFullYear(), n.getMonth(), 1)
+  })
+  const nowDate = new Date()
+  const isCurrentMonth =
+    viewMonth.getFullYear() === nowDate.getFullYear() && viewMonth.getMonth() === nowDate.getMonth()
+  const monthKey = `${viewMonth.getFullYear()}-${String(viewMonth.getMonth() + 1).padStart(2, '0')}`
+  const monthLabel = new Intl.DateTimeFormat('vi-VN', { month: 'long', year: 'numeric' }).format(viewMonth)
+  const monthShort = `${viewMonth.getMonth() + 1}/${viewMonth.getFullYear()}`
+  const goPrevMonth = () => setViewMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))
+  const goNextMonth = () => setViewMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))
+  const goCurrentMonth = () => {
+    const n = new Date()
+    setViewMonth(new Date(n.getFullYear(), n.getMonth(), 1))
+  }
 
   // ----- Tổng thu nhập tháng này -----
   const monthlySummary = useMemo(() => {
@@ -192,22 +205,16 @@ export default function WorkPage() {
     return { totalHours, normalIncome, otHours, otIncome, npcHours, npcIncome, extendCount, extendIncome, totalIncome, shiftCount }
   }, [shifts, monthKey, shiftMoney])
 
-  const monthLabel = useMemo(
-    () => new Intl.DateTimeFormat('vi-VN', { month: 'long', year: 'numeric' }).format(new Date()),
-    [],
-  )
-
-  // Các ngày trong tháng hiện tại
+  // Các ngày trong tháng đang xem
   const monthDays = useMemo(() => {
-    const now = new Date()
-    const year = now.getFullYear()
-    const month = now.getMonth()
+    const year = viewMonth.getFullYear()
+    const month = viewMonth.getMonth()
     const daysInMonth = new Date(year, month + 1, 0).getDate()
     return Array.from({ length: daysInMonth }, (_, i) => {
       const day = i + 1
       return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     })
-  }, [])
+  }, [viewMonth])
 
   const todayKey = useMemo(() => {
     const now = new Date()
@@ -402,11 +409,42 @@ export default function WorkPage() {
         </div>
       </header>
 
+      {/* Chọn tháng để xem */}
+      <div className="pg-monthnav">
+        <button
+          type="button"
+          className="pg-btn pg-btn--ghost pg-monthnav__btn"
+          onClick={goPrevMonth}
+          aria-label="Tháng trước"
+        >
+          ‹
+        </button>
+        <div className="pg-monthnav__info">
+          <span className="pg-monthnav__month">{monthLabel}</span>
+          <span className="pg-monthnav__income">💳 {formatVND(monthlySummary.totalIncome)}</span>
+          <span className="pg-monthnav__count">{monthlySummary.shiftCount} ca</span>
+        </div>
+        <button
+          type="button"
+          className="pg-btn pg-btn--ghost pg-monthnav__btn"
+          onClick={goNextMonth}
+          disabled={isCurrentMonth}
+          aria-label="Tháng sau"
+        >
+          ›
+        </button>
+        {!isCurrentMonth && (
+          <button type="button" className="pg-btn pg-btn--sm pg-btn--ghost pg-monthnav__today" onClick={goCurrentMonth}>
+            Quay về tháng này
+          </button>
+        )}
+      </div>
+
       {/* Tổng kết tháng này */}
       <section className="pg-grid">
         <article className="pg-stat">
           <div className="pg-stat__top">
-            <p className="pg-stat__label">Giờ làm tháng này</p>
+            <p className="pg-stat__label">Giờ làm · {monthShort}</p>
             <span className="pg-stat__icon" style={{ background: '#f5f3ff', color: '#7c3aed' }}>⏱️</span>
           </div>
           <div className="pg-rate-inline pg-rate-inline--top">
@@ -492,7 +530,7 @@ export default function WorkPage() {
         </article>
         <article className="pg-stat">
           <div className="pg-stat__top">
-            <p className="pg-stat__label">Thu nhập tháng này</p>
+            <p className="pg-stat__label">Thu nhập · {monthShort}</p>
             <span className="pg-stat__icon" style={{ background: '#ecfdf5', color: '#059669' }}>💰</span>
           </div>
           <p className="pg-stat__value">{formatVND(monthlySummary.totalIncome)}</p>
@@ -538,7 +576,7 @@ export default function WorkPage() {
       <section className="pg-card">
         <div className="pg-card__head">
           <div>
-            <h3 className="pg-card__title">Lịch làm tháng này</h3>
+            <h3 className="pg-card__title">Lịch làm · {monthShort}</h3>
             <p className="pg-card__subtitle">
               {monthLabel} · Bấm vào ô ca làm để nhập NPC/OT/EXTEND và xem chi tiết.
             </p>
@@ -546,7 +584,7 @@ export default function WorkPage() {
         </div>
 
         {shiftsByDate.size === 0 ? (
-          <p className="pg-empty">Chưa có lịch làm trong tháng này. Bấm "🗓️ Thêm ca theo tuần" để bắt đầu.</p>
+          <p className="pg-empty">Chưa có lịch làm trong {monthLabel}.</p>
         ) : (
           <div className="pg-month-table">
             <table>
