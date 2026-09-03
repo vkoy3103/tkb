@@ -863,3 +863,188 @@
     justify-content: space-between;
   }
 }
+
+/* ---------- Thu nhập khác (Work — thưởng/phụ cấp nhập tay) ---------- */
+.pg-oi__total {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #059669;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 999px;
+  padding: 0.32rem 0.85rem;
+  white-space: nowrap;
+}
+
+.pg-oi__form {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 1.1rem;
+}
+
+.pg-oi__date {
+  width: 9.6rem;
+  flex-shrink: 0;
+}
+
+.pg-oi__note {
+  flex: 1 1 180px;
+  min-width: 140px;
+}
+
+.pg-oi__amountwrap {
+  position: relative;
+  width: 9.6rem;
+  flex-shrink: 0;
+}
+
+.pg-oi__amount {
+  padding-right: 2rem;
+  -moz-appearance: textfield;
+}
+
+.pg-oi__amount::-webkit-outer-spin-button,
+.pg-oi__amount::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.pg-oi__suffix {
+  position: absolute;
+  right: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.pg-oi__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.pg-oi__row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 1.1rem;
+  padding: 0.6rem 0.9rem;
+  transition: transform 0.13s ease, border-color 0.13s ease, box-shadow 0.13s ease;
+}
+
+.pg-oi__row:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 6px 12px rgba(15, 23, 42, 0.05);
+  transform: translateY(-1px);
+}
+
+.pg-oi__badge {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.85rem;
+  background: #ede9fe;
+  color: #6d28d9;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.pg-oi__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.pg-oi__note {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pg-oi__meta {
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.pg-oi__amount {
+  flex-shrink: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #059669;
+  white-space: nowrap;
+}
+
+.pg-oi__actions {
+  display: flex;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.pg-oi__actions button {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  border-radius: 0.5rem;
+  font-size: 0.78rem;
+  line-height: 1;
+  padding: 0.35rem 0.45rem;
+  cursor: pointer;
+  transition: all 0.13s ease;
+}
+
+.pg-oi__actions button:hover {
+  border-color: #7c3aed;
+  background: #f5f3ff;
+}
+
+/* Hàng đang sửa */
+.pg-oi__row--edit {
+  flex-wrap: wrap;
+  background: #f5f3ff;
+  border-color: #c4b5fd;
+}
+
+.pg-oi__row--edit .pg-oi__date,
+.pg-oi__row--edit .pg-oi__note,
+.pg-oi__row--edit .pg-oi__amountwrap {
+  flex: 1 1 auto;
+}
+
+.pg-oi__editbtns {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+@media (max-width: 560px) {
+  .pg-oi__form {
+    gap: 0.5rem;
+  }
+  .pg-oi__date,
+  .pg-oi__amountwrap {
+    width: 8.6rem;
+  }
+  .pg-oi__row {
+    flex-wrap: wrap;
+  }
+}

@@ -4,6 +4,7 @@ import { WorkExtraEditor } from '../components/WorkExtraEditor'
 import { WeekShiftScheduler } from '../components/WeekShiftScheduler'
 import { ShiftMoneyEditor } from '../components/ShiftMoneyEditor'
 import { WorkQuickImportScheduler } from '../components/WorkQuickImportScheduler'
+import { OtherIncomeCard } from '../components/OtherIncomeCard'
 import type { WeekShiftDraft } from '../components/WeekShiftScheduler'
 import {
   createWorkShift,
@@ -21,7 +22,13 @@ import {
 } from '../services/workExtraApi'
 import { fetchWorkExtraTypes } from '../services/workExtraTypeApi'
 import { fetchSettings, updateSetting } from '../services/settingsApi'
-import type { SettingsEntry, WorkExtra, WorkExtraType, WorkShift } from '../types'
+import {
+  createOtherIncome,
+  deleteOtherIncome,
+  fetchOtherIncomes,
+  updateOtherIncome,
+} from '../services/otherIncomeApi'
+import type { SettingsEntry, WorkExtra, WorkExtraType, WorkShift, OtherIncome } from '../types'
 import { getOtRate, settingsToRates } from '../utils/salary'
 import { calcShiftMoney, getOtStartMinutes } from '../utils/workMoney'
 import '../styles/pages.css'
@@ -69,6 +76,7 @@ export default function WorkPage() {
   const [extras, setExtras] = useState<WorkExtra[]>([])
   const [extraTypes, setExtraTypes] = useState<WorkExtraType[]>([])
   const [settings, setSettings] = useState<SettingsEntry[]>([])
+  const [otherIncomes, setOtherIncomes] = useState<OtherIncome[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -93,16 +101,18 @@ export default function WorkPage() {
   const [isQuickImportOpen, setIsQuickImportOpen] = useState(false)
 
   const load = async () => {
-    const [shiftData, extraData, typeData, settingData] = await Promise.all([
+    const [shiftData, extraData, typeData, settingData, otherIncomeData] = await Promise.all([
       fetchWorkShifts(),
       fetchWorkExtras(),
       fetchWorkExtraTypes(),
       fetchSettings(),
+      fetchOtherIncomes(),
     ])
     setShifts(shiftData)
     setExtras(extraData)
     setExtraTypes(typeData)
     setSettings(settingData)
+    setOtherIncomes(otherIncomeData)
   }
 
   useEffect(() => {
@@ -204,6 +214,21 @@ export default function WorkPage() {
     }
     return { totalHours, normalIncome, otHours, otIncome, npcHours, npcIncome, extendCount, extendIncome, totalIncome, shiftCount }
   }, [shifts, monthKey, shiftMoney])
+
+  // ----- Thu nhập khác (thưởng/phụ cấp nhập tay) trong tháng đang xem -----
+  const monthOtherIncomes = useMemo(() => {
+    return otherIncomes
+      .filter((o) => o.date.startsWith(monthKey))
+      .sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)
+  }, [otherIncomes, monthKey])
+
+  const otherIncomeTotal = useMemo(
+    () => monthOtherIncomes.reduce((sum, o) => sum + (o.amount || 0), 0),
+    [monthOtherIncomes],
+  )
+
+  // Tổng thu nhập tháng = tiền ca + thu nhập khác
+  const monthIncomeTotal = monthlySummary.totalIncome + otherIncomeTotal
 
   // Các ngày trong tháng đang xem
   const monthDays = useMemo(() => {
@@ -370,6 +395,40 @@ export default function WorkPage() {
     }
   }
 
+  // ----- Handlers: thu nhập khác (thưởng/phụ cấp nhập tay) -----
+  const handleAddOtherIncome = async (payload: { date: string; note?: string | null; amount: number }) => {
+    setSaving(true)
+    try {
+      const created = await createOtherIncome(payload)
+      setOtherIncomes((prev) => [...prev, created])
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleUpdateOtherIncome = async (
+    id: number,
+    payload: Partial<{ date: string; note?: string | null; amount: number }>,
+  ) => {
+    setSaving(true)
+    try {
+      const updated = await updateOtherIncome(id, payload)
+      setOtherIncomes((prev) => prev.map((o) => (o.id === updated.id ? updated : o)))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeleteOtherIncome = async (id: number) => {
+    setSaving(true)
+    try {
+      await deleteOtherIncome(id)
+      setOtherIncomes((prev) => prev.filter((o) => o.id !== id))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // ----- Lưu đơn giá từng ô (lưu khi rời ô hoặc bấm Enter) -----
   const saveRate = async (key: string) => {
     setSaving(true)
@@ -421,7 +480,7 @@ export default function WorkPage() {
         </button>
         <div className="pg-monthnav__info">
           <span className="pg-monthnav__month">{monthLabel}</span>
-          <span className="pg-monthnav__income">💳 {formatVND(monthlySummary.totalIncome)}</span>
+          <span className="pg-monthnav__income">💳 {formatVND(monthIncomeTotal)}</span>
           <span className="pg-monthnav__count">{monthlySummary.shiftCount} ca</span>
         </div>
         <button
@@ -533,8 +592,11 @@ export default function WorkPage() {
             <p className="pg-stat__label">Thu nhập · {monthShort}</p>
             <span className="pg-stat__icon" style={{ background: '#ecfdf5', color: '#059669' }}>💰</span>
           </div>
-          <p className="pg-stat__value">{formatVND(monthlySummary.totalIncome)}</p>
-          <p className="pg-stat__extra">Chưa trừ phí</p>
+          <p className="pg-stat__value">{formatVND(monthIncomeTotal)}</p>
+          <p className="pg-stat__extra pg-stat__extra--income">
+            Gồm ca {formatVND(monthlySummary.totalIncome)}
+            {otherIncomeTotal > 0 ? ` + khác ${formatVND(otherIncomeTotal)}` : ''}
+          </p>
         </article>
       </section>
 
@@ -650,6 +712,18 @@ export default function WorkPage() {
           </div>
         )}
       </section>
+
+      {/* Thu nhập khác trong tháng (thưởng/phụ cấp nhập tay) */}
+      <OtherIncomeCard
+        items={monthOtherIncomes}
+        monthKey={monthKey}
+        monthShort={monthShort}
+        monthLabel={monthLabel}
+        isLoading={saving}
+        onAdd={handleAddOtherIncome}
+        onUpdate={handleUpdateOtherIncome}
+        onDelete={handleDeleteOtherIncome}
+      />
 
       <WorkShiftEditor
         isOpen={isShiftModalOpen}

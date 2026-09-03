@@ -97,6 +97,15 @@ export interface WorkExtra {
   created_at: string
 }
 
+export interface OtherIncome {
+  id: number
+  date: string
+  note?: string | null
+  amount: number
+  created_at: string
+  updated_at: string
+}
+
 export interface SettingsEntry {
   id: number
   key: string

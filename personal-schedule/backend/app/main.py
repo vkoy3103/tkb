@@ -18,6 +18,7 @@ from app.routers.schedule_router import router as schedule_router
 from app.routers.settings_router import router as settings_router
 from app.routers.statistics_router import router as statistics_router
 from app.routers.subject_router import router as subject_router
+from app.routers.other_income_router import router as other_income_router
 from app.routers.work_extra_router import router as work_extra_router
 from app.routers.work_extra_type_router import router as work_extra_type_router
 from app.routers.work_shift_router import router as work_shift_router
@@ -52,6 +53,7 @@ app.include_router(schedule_override_router, prefix="/api")
 app.include_router(work_shift_router, prefix="/api")
 app.include_router(work_extra_router, prefix="/api")
 app.include_router(work_extra_type_router, prefix="/api")
+app.include_router(other_income_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
 app.include_router(statistics_router, prefix="/api")
 app.include_router(backup_router, prefix="/api")
@@ -189,6 +191,7 @@ def _sync_sequences():
         "work_extra_types",
         "settings",
         "periods",
+        "other_incomes",
     ]
     with engine.begin() as conn:
         for table in tables:
