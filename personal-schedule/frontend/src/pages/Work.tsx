@@ -600,6 +600,18 @@ export default function WorkPage() {
         </article>
       </section>
 
+      {/* Thu nhập khác trong tháng (thưởng/phụ cấp nhập tay) */}
+      <OtherIncomeCard
+        items={monthOtherIncomes}
+        monthKey={monthKey}
+        monthShort={monthShort}
+        monthLabel={monthLabel}
+        isLoading={saving}
+        onAdd={handleAddOtherIncome}
+        onUpdate={handleUpdateOtherIncome}
+        onDelete={handleDeleteOtherIncome}
+      />
+
       {/* Thêm ca nhanh theo khung giờ */}
       <section className="pg-card">
         <div className="pg-card__head">
@@ -712,18 +724,6 @@ export default function WorkPage() {
           </div>
         )}
       </section>
-
-      {/* Thu nhập khác trong tháng (thưởng/phụ cấp nhập tay) */}
-      <OtherIncomeCard
-        items={monthOtherIncomes}
-        monthKey={monthKey}
-        monthShort={monthShort}
-        monthLabel={monthLabel}
-        isLoading={saving}
-        onAdd={handleAddOtherIncome}
-        onUpdate={handleUpdateOtherIncome}
-        onDelete={handleDeleteOtherIncome}
-      />
 
       <WorkShiftEditor
         isOpen={isShiftModalOpen}
