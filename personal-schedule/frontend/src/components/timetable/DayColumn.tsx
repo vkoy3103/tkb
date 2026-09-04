@@ -57,6 +57,7 @@ type DayColumnProps = {
     start: string
     end: string
   }) => void
+  onAddShiftSlot?: (date: string) => void
 }
 
 export function DayColumn({
@@ -70,6 +71,7 @@ export function DayColumn({
   onScheduleClick,
   onScheduleContextMenu,
   onAddWorkShiftFromCancel,
+  onAddShiftSlot,
 }: DayColumnProps) {
   return (
     <div className="timetable-day-column">
@@ -80,7 +82,12 @@ export function DayColumn({
         }}
       >
         {timeSlots.map((slot) => (
-          <div key={slot} className="timetable-grid-cell" />
+          <div
+            key={slot}
+            className={`timetable-grid-cell${onAddShiftSlot ? ' timetable-grid-cell--add' : ''}`}
+            onClick={onAddShiftSlot ? () => onAddShiftSlot(date) : undefined}
+            title={onAddShiftSlot ? 'Thêm ca làm (SHIFT 1/2/3)' : undefined}
+          />
         ))}
 
         {schedules.map((schedule) => {

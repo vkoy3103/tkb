@@ -5,7 +5,7 @@ import { MakeupScheduler } from '../components/MakeupScheduler'
 import { InlineScheduleEditor } from '../components/InlineScheduleEditor'
 import { WeekShiftScheduler } from '../components/WeekShiftScheduler'
 import { ShiftMoneyEditor } from '../components/ShiftMoneyEditor'
-import { WorkShiftEditor } from './WorkShiftEditor'
+import { WorkShiftEditor, FIXED_SHIFTS } from './WorkShiftEditor'
 import type { WeekShiftDraft } from '../components/WeekShiftScheduler'
 import { useAuth } from '../context/AuthContext'
 import { fetchPeriods } from '../services/periodApi'
@@ -66,6 +66,13 @@ const emptyForm = {
   note: '',
 }
 
+// "2026-09-07" -> "T2, 07/09/2026"
+function slotDateLabel(dateStr: string): string {
+  const d = new Date(`${dateStr}T00:00:00`)
+  const wd = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][d.getDay()] ?? ''
+  return `${wd}, ${dateStr.slice(8, 10)}/${dateStr.slice(5, 7)}/${dateStr.slice(0, 4)}`
+}
+
 export default function SchedulePage() {
   const { scheduleMode } = useAuth()
   const [subjects, setSubjects] = useState<Subject[]>([])
@@ -96,6 +103,8 @@ export default function SchedulePage() {
   const [shiftPreset, setShiftPreset] = useState<Partial<WorkShift> | undefined>(undefined)
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+  // Ngày đang chọn để thêm ca làm khi bấm ô trống trên TKB
+  const [slotPickerDate, setSlotPickerDate] = useState<string | null>(null)
 
   const workExtraMap = useMemo(() => {
     const map = new Map<number, WorkExtra[]>()
@@ -398,6 +407,35 @@ export default function SchedulePage() {
     }
   }
 
+  // ----- Bấm ô trống trên TKB → chọn SHIFT 1/2/3 để thêm ca làm -----
+  const handleAddShiftSlot = (date: string) => {
+    setSlotPickerDate(date)
+  }
+
+  const hasShiftOnDate = (date: string, shiftType: string) =>
+    workShifts.some((s) => s.date === date && s.shift_type === shiftType)
+
+  const handleChooseShiftSlot = async (date: string, shift: { value: string; start: string; end: string }) => {
+    if (hasShiftOnDate(date, shift.value)) return
+    setSaving(true)
+    try {
+      const data: Partial<WorkShift> = {
+        date,
+        shift_type: shift.value,
+        scheduled_start: shift.start,
+        scheduled_end: shift.end,
+        status: 'scheduled',
+      }
+      const created = await createWorkShift(data)
+      setWorkShifts((prev) => [...prev, created])
+      setSlotPickerDate(null)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const closeSlotPicker = () => setSlotPickerDate(null)
+
   const loadData = async () => {
     try {
       setLoading(true)
@@ -636,6 +674,41 @@ return (
       isLoading={saving}
     />
 
+    {/* Hộp chọn SHIFT khi bấm ô trống trên TKB */}
+    {slotPickerDate && (
+      <div className="slot-picker-backdrop" onClick={closeSlotPicker}>
+        <div className="slot-picker" onClick={(e) => e.stopPropagation()}>
+          <div className="slot-picker__head">
+            <span className="slot-picker__title">🕒 Thêm ca làm</span>
+            <button type="button" className="slot-picker__close" onClick={closeSlotPicker} title="Đóng">
+              ✕
+            </button>
+          </div>
+          <p className="slot-picker__date">{slotDateLabel(slotPickerDate)} · Chọn ca cần thêm:</p>
+          <div className="slot-picker__list">
+            {FIXED_SHIFTS.map((shift) => {
+              const exists = hasShiftOnDate(slotPickerDate, shift.value)
+              return (
+                <button
+                  key={shift.value}
+                  type="button"
+                  className={`slot-picker__option${exists ? ' slot-picker__option--disabled' : ''}`}
+                  disabled={exists}
+                  onClick={() => handleChooseShiftSlot(slotPickerDate, shift)}
+                >
+                  <span className="slot-picker__opt-name">{shift.value}</span>
+                  <span className="slot-picker__opt-time">
+                    {shift.start} – {shift.end}
+                  </span>
+                  <span className="slot-picker__opt-state">{exists ? 'Đã có' : '＋ Thêm'}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    )}
+
     <div className="schedule-page">
       <div className="schedule-timetable-card">
         <Timetable
@@ -655,6 +728,7 @@ return (
           onUpdateSubject={handleUpdateSubject}
           onDeleteSubject={handleDeleteSubject}
           onUpdateSchedule={handleUpdateSchedule}
+          onAddShiftSlot={handleAddShiftSlot}
         />
       </div>
 
