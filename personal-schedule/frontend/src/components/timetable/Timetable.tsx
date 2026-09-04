@@ -124,8 +124,6 @@ type TimetableProps = {
   onUpdateSubject?: (id: number, data: Partial<Subject>) => void | Promise<void>
   onDeleteSubject?: (id: number) => void | Promise<void>
   onUpdateSchedule?: (scheduleId: number, data: Partial<Schedule>) => void | Promise<void>
-  // Bấm ô trống trên lịch → thêm ca làm cho ngày đó
-  onAddShiftSlot?: (date: string) => void
 }
 
 export function Timetable({
@@ -145,7 +143,6 @@ export function Timetable({
   onUpdateSubject,
   onDeleteSubject,
   onUpdateSchedule,
-  onAddShiftSlot,
 }: TimetableProps) {
   const [viewDate, setViewDate] = useState(() => getVietnamDate(new Date()))
 
@@ -488,7 +485,6 @@ export function Timetable({
                       onScheduleClick={onScheduleClick}
                       onScheduleContextMenu={onScheduleContextMenu}
                       onAddWorkShiftFromCancel={onAddWorkShiftFromCancel}
-                      onAddShiftSlot={onAddShiftSlot}
                     />
                   )
                 })}

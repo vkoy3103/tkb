@@ -57,7 +57,6 @@ type DayColumnProps = {
     start: string
     end: string
   }) => void
-  onAddShiftSlot?: (date: string) => void
 }
 
 export function DayColumn({
@@ -71,7 +70,6 @@ export function DayColumn({
   onScheduleClick,
   onScheduleContextMenu,
   onAddWorkShiftFromCancel,
-  onAddShiftSlot,
 }: DayColumnProps) {
   return (
     <div className="timetable-day-column">
@@ -81,12 +79,13 @@ export function DayColumn({
           gridTemplateRows: `repeat(${timeSlots.length}, var(--timetable-row-height))`,
         }}
       >
-        {timeSlots.map((slot) => (
+        {timeSlots.map((slot, index) => (
           <div
             key={slot}
-            className={`timetable-grid-cell${onAddShiftSlot ? ' timetable-grid-cell--add' : ''}`}
-            onClick={onAddShiftSlot ? () => onAddShiftSlot(date) : undefined}
-            title={onAddShiftSlot ? 'Thêm ca làm (SHIFT 1/2/3)' : undefined}
+            className="timetable-grid-cell"
+            // Gán cố định hàng cho từng ô nền (không auto-placement) để các ô không bị
+            // block bài học đẩy xuống dưới tạo hàng trống thừa ở cuối bảng.
+            style={{ gridRow: `${index + 1} / span 1` }}
           />
         ))}
 
