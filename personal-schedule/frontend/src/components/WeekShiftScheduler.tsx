@@ -7,8 +7,10 @@ import {
 import { fetchSchedules } from '../services/scheduleApi'
 import { fetchPeriods } from '../services/periodApi'
 import { fetchScheduleOverrides } from '../services/scheduleOverrideApi'
+import { fetchSubjects } from '../services/subjectApi'
 import { fetchWorkShifts } from '../services/workShiftApi'
-import type { Period, Schedule, ScheduleOverride, WorkShift } from '../types'
+import type { Period, Schedule, ScheduleOverride, Subject, WorkShift } from '../types'
+import { getStudyWeek, getSubjectEffectiveWeekRange, isRangeActiveInWeek, isScheduleInWeek } from '../utils/studyWeek'
 import '../styles/week-shift-scheduler.css'
 
 // 3 ca cố định mỗi ngày
@@ -80,6 +82,7 @@ export function WeekShiftScheduler({
   const [selected, setSelected] = useState<Record<string, boolean>>({})
   const [existingMap, setExistingMap] = useState<Record<string, WorkShift>>({})
   const [schedules, setSchedules] = useState<Schedule[]>([])
+  const [subjects, setSubjects] = useState<Subject[]>([])
   const [periods, setPeriods] = useState<Period[]>([])
   const [scheduleOverrides, setScheduleOverrides] = useState<ScheduleOverride[]>([])
   const [loadingData, setLoadingData] = useState(false)
@@ -106,15 +109,17 @@ export function WeekShiftScheduler({
     const load = async () => {
       setLoadingData(true)
       try {
-        const [scheduleData, periodData, shiftData, overrideData] = await Promise.all([
+        const [scheduleData, periodData, shiftData, overrideData, subjectData] = await Promise.all([
           fetchSchedules(),
           fetchPeriods(),
           fetchWorkShifts(),
           fetchScheduleOverrides(),
+          fetchSubjects(),
         ])
         setSchedules(scheduleData)
         setPeriods(periodData)
         setScheduleOverrides(overrideData)
+        setSubjects(subjectData)
 
         // Khớp ca làm hiện có với ô (ngày + ca) trong tuần
         const startDate = new Date(`${weekStart}T00:00:00`)
@@ -155,6 +160,19 @@ export function WeekShiftScheduler({
   const conflictMap = useMemo(() => {
     const map: Record<string, boolean> = {}
 
+    // Tuần học tương ứng với tuần đang xem
+    const studyWeek = getStudyWeek(new Date(`${weekStart}T00:00:00`))
+    const subjectsById = new Map<number, Subject>()
+    subjects.forEach((s) => subjectsById.set(s.id, s))
+
+    // CHỈ xét các lịch học CÒN hiệu lực trong tuần đang xem.
+    // Môn đã hết tuần học (vd thí nghiệm vật lý) → không còn hiện trên TKB → KHÔNG chặn ca làm.
+    const activeSchedules = schedules.filter((s) => {
+      const subject = subjectsById.get(s.subject_id)
+      if (subject) return isRangeActiveInWeek(getSubjectEffectiveWeekRange(subject, schedules), studyWeek)
+      return isScheduleInWeek(s, studyWeek)
+    })
+
     // Ngày cụ thể của từng thứ trong tuần đang xem (để khớp override nghỉ theo ngày)
     const dayDate = (weekday: number): string => {
       const start = new Date(`${weekStart}T00:00:00`)
@@ -165,7 +183,7 @@ export function WeekShiftScheduler({
 
     for (const day of WEEKDAY_LABELS) {
       const date = dayDate(day.weekday)
-      const classRanges = schedules
+      const classRanges = activeSchedules
         .filter((s) => {
           if (s.weekday !== day.weekday) return false
           // Lịch bị nghỉ đúng hôm đó → bỏ qua (không chặn ca làm)
@@ -194,7 +212,7 @@ export function WeekShiftScheduler({
       })
     }
     return map
-  }, [schedules, periods, scheduleOverrides, weekStart])
+  }, [schedules, periods, scheduleOverrides, weekStart, subjects])
 
   const selectedCount = useMemo(() => Object.values(selected).filter(Boolean).length, [selected])
   const existingCount = useMemo(
