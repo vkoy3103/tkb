@@ -373,12 +373,18 @@ export default function WorkPage() {
   }
 
   // ----- Handlers: thêm ca theo tuần -----
-  const handleSaveWeekShifts = async (drafts: WeekShiftDraft[]) => {
+  const handleSaveWeekShifts = async (toCreate: WeekShiftDraft[], toDeleteIds: number[]) => {
     setSaving(true)
     try {
       // Tạo toàn bộ ca trong 1 request (nhanh hơn nhiều)
-      const created = await createWorkShiftsBulk(drafts)
+      const created = await createWorkShiftsBulk(toCreate)
       setShifts((prev) => [...prev, ...created])
+      // Bỏ tick ca đã có → xoá ca tương ứng (đồng bộ như trang Schedule)
+      if (toDeleteIds.length > 0) {
+        await Promise.all(toDeleteIds.map((id) => deleteWorkShift(id)))
+        setShifts((prev) => prev.filter((s) => !toDeleteIds.includes(s.id)))
+        setExtras((prev) => prev.filter((e) => !toDeleteIds.includes(e.work_shift_id)))
+      }
     } finally {
       setSaving(false)
     }

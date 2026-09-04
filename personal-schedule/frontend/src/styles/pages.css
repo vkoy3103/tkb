@@ -933,7 +933,9 @@
 
 .pg-oi__amount {
   padding-right: 2rem;
+  -webkit-appearance: none;
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 .pg-oi__amount::-webkit-outer-spin-button,
