@@ -130,15 +130,16 @@ export default function CashBalancePage() {
   const totalExpense = expenseItems.reduce((a, b) => a + b, 0)
   const balance = cashIncome + totalIncome - totalExpense
 
-  // Bỏ két tự = balance (để cash balance = 0)
+  // Bỏ két tự = balance (để cash balance = 0); nếu balance âm → không bỏ két (0)
   useEffect(() => {
-    setBanked(balance)
+    setBanked(Math.max(balance, 0))
   }, [balance])
 
-  // Két hôm nay (dự kiến) = két hôm qua + bỏ két → tự điền vào ô Két hôm nay
+  // Két hôm nay (dự kiến) = két hôm qua + balance
+  // (balance dương → cộng tiền bỏ két; balance âm → trừ vào két hôm qua)
   useEffect(() => {
-    setTodaySafe((Number(yesterdaySafe) || 0) + (Number(banked) || 0))
-  }, [yesterdaySafe, banked])
+    setTodaySafe((Number(yesterdaySafe) || 0) + balance)
+  }, [yesterdaySafe, balance])
 
   // Tổng tiền đếm được từ số tờ các mệnh giá
   const safeFromBills = useMemo(
@@ -194,12 +195,14 @@ export default function CashBalancePage() {
   const outputText = useMemo(() => {
     const b = Number(banked) || 0
     const remain = balance - b
-    // Tách rời từng khoản thu / chi (không gộp tổng); bỏ két ghi rõ nhãn
+    // Tách rời từng khoản thu / chi (không gộp tổng)
     const incomeParts = [fmtK(cashIncome), ...incomeItems.map((a) => `+ ${fmtK(a)}`)]
     const expenseParts = expenseItems.map((a) => `- ${fmtK(a)}`)
+    // Chỉ ghi "(bỏ két)" khi thật sự có bỏ két (không ghi khi bỏ két = 0 / âm)
+    const parts = b > 0 ? [...incomeParts, ...expenseParts, `- ${fmtK(b)} (bỏ két)`] : [...incomeParts, ...expenseParts]
     // Két dưới text = két thực tế (nếu chưa nhập thực tế → dùng dự kiến)
     const finalSafe = Number(actualSafe) > 0 ? Number(actualSafe) : Number(todaySafe) || 0
-    return `CASH BALANCE: ${[...incomeParts, ...expenseParts, `- ${fmtK(b)} (bỏ két)`].join(' ')} = ${fmtK(remain)}\nkét : ${fmtK(finalSafe)}`
+    return `CASH BALANCE: ${parts.join(' ')} = ${fmtK(remain)}\nkét : ${fmtK(finalSafe)}`
   }, [cashIncome, incomeItems, expenseItems, banked, balance, todaySafe, actualSafe])
 
   const handleCopy = async () => {
@@ -219,7 +222,7 @@ export default function CashBalancePage() {
           <div className="pg-header__icon">💰</div>
           <div>
             <h1 className="pg-header__title">Kết ca — Cash Balance</h1>
-            <p className="pg-header__subtitle">Tiền mặt quán thu + thu khác − chi − bỏ két = 0 · Két hôm nay = két hôm qua + bỏ két</p>
+            <p className="pg-header__subtitle">Tiền mặt quán thu + thu khác − chi − bỏ két = 0 · Tổng âm thì không bỏ két, trừ vào két hôm qua</p>
           </div>
         </div>
       </div>
@@ -394,7 +397,7 @@ export default function CashBalancePage() {
             <div className="cb-divider" />
             <div className="cb-line cb-line--big">
               <span>Tổng (trước bỏ két)</span>
-              <b>{fmtMoney(balance)}</b>
+              <b className={balance < 0 ? 'cb-neg' : undefined}>{fmtMoney(balance)}</b>
             </div>
             <div className="cb-line">
               <span>Bỏ két</span>
@@ -403,7 +406,11 @@ export default function CashBalancePage() {
                 type="number"
                 min={0}
                 readOnly
-                title="Tự tính = tổng tiền mặt (để cash balance = 0)"
+                title={
+                  balance < 0
+                    ? 'Tổng âm → không bỏ két; phần âm sẽ trừ vào két hôm qua'
+                    : 'Tự tính = tổng tiền mặt (để cash balance = 0)'
+                }
                 value={banked || ''}
               />
             </div>
@@ -424,7 +431,7 @@ export default function CashBalancePage() {
                 className="pg-input cb-amount cb-amount--lg cb-safe-input"
                 type="text"
                 readOnly
-                title="Tự tính = két hôm qua + bỏ két"
+                title="Tự tính = két hôm qua + bỏ két (nếu tổng âm thì trừ vào két hôm qua)"
                 value={todaySafe ? (todaySafe % 1000 === 0 ? `${todaySafe / 1000}k` : String(todaySafe)) : ''}
               />
             </div>
