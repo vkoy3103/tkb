@@ -54,3 +54,9 @@ class WorkShiftExtrasUpdate(BaseModel):
     ot_hours: float | None = None
     extend_count: float | None = None
     coefficient: float | None = Field(default=None, ge=0.1, le=10, description="Hệ số ca (vd lễ x2, x1.5)")
+
+
+class WorkShiftBulkDelete(BaseModel):
+    """Xoá nhiều ca làm trong 1 request (xoá hàng loạt — nhanh hơn gọi từng ca)."""
+
+    ids: list[int] = Field(..., min_length=1)

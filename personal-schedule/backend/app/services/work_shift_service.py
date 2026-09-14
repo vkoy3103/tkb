@@ -80,6 +80,23 @@ def delete_work_shift(db: Session, work_shift: WorkShift) -> None:
     db.commit()
 
 
+def delete_work_shifts_bulk(db: Session, user_id: int, ids: list[int]) -> int:
+    """Xoá nhiều ca làm trong MỘT transaction (kèm phụ thu NPC/OT/EXTEND của các ca đó)."""
+    if not ids:
+        return 0
+    shift_ids = [int(i) for i in ids]
+    db.query(WorkExtra).filter(
+        WorkExtra.user_id == user_id, WorkExtra.work_shift_id.in_(shift_ids)
+    ).delete(synchronize_session=False)
+    deleted = (
+        db.query(WorkShift)
+        .filter(WorkShift.user_id == user_id, WorkShift.id.in_(shift_ids))
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return int(deleted)
+
+
 def sync_work_shift_extras(
     db: Session,
     work_shift: WorkShift,

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.user import User
 from app.schemas.work_shift import (
+    WorkShiftBulkDelete,
     WorkShiftCreate,
     WorkShiftExtrasUpdate,
     WorkShiftRead,
@@ -14,6 +15,7 @@ from app.services.work_shift_service import (
     create_work_shift,
     create_work_shifts_bulk,
     delete_work_shift,
+    delete_work_shifts_bulk,
     get_work_shift,
     get_work_shifts,
     sync_work_shift_extras,
@@ -57,6 +59,17 @@ def create_work_shifts_bulk_endpoint(
 ):
     """Tạo nhiều ca làm trong 1 request (import hàng loạt — nhanh hơn gọi từng ca)."""
     return create_work_shifts_bulk(db, current_user.id, payloads)
+
+
+@router.post("/bulk-delete")
+def delete_work_shifts_bulk_endpoint(
+    payload: WorkShiftBulkDelete,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Xoá nhiều ca làm trong 1 request (xoá hàng loạt — nhanh hơn gọi từng ca)."""
+    deleted = delete_work_shifts_bulk(db, current_user.id, payload.ids)
+    return {"deleted": deleted}
 
 
 @router.get("/{work_shift_id}", response_model=WorkShiftRead)

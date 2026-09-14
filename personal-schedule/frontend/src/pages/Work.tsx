@@ -10,6 +10,7 @@ import {
   createWorkShift,
   createWorkShiftsBulk,
   deleteWorkShift,
+  deleteWorkShiftsBulk,
   fetchWorkShifts,
   syncWorkShiftExtras,
   updateWorkShift,
@@ -93,6 +94,10 @@ export default function WorkPage() {
 
   // Tiền ca (bấm vào ca) state
   const [moneyShift, setMoneyShift] = useState<WorkShift | null>(null)
+
+  // Chọn nhanh nhiều ca để xoá hàng loạt
+  const [selectedShiftIds, setSelectedShiftIds] = useState<number[]>([])
+  const [showBulkPanel, setShowBulkPanel] = useState(false)
 
   // Week scheduler state
   const [isWeekModalOpen, setIsWeekModalOpen] = useState(false)
@@ -229,6 +234,25 @@ export default function WorkPage() {
 
   // Tổng thu nhập tháng = tiền ca + thu nhập khác
   const monthIncomeTotal = monthlySummary.totalIncome + otherIncomeTotal
+
+  // Danh sách ca trong tháng đang xem (để chọn nhanh & xoá hàng loạt)
+  const monthShifts = useMemo(() => {
+    return shifts
+      .filter((s) => s.date.startsWith(monthKey))
+      .sort(
+        (a, b) =>
+          a.date.localeCompare(b.date) ||
+          String(a.scheduled_start || '').localeCompare(String(b.scheduled_start || '')),
+      )
+  }, [shifts, monthKey])
+
+  // Đổi tháng → bỏ chọn; ca bị xoá → loại khỏi danh sách chọn
+  useEffect(() => {
+    setSelectedShiftIds([])
+  }, [monthKey])
+  useEffect(() => {
+    setSelectedShiftIds((prev) => prev.filter((id) => shifts.some((s) => s.id === id)))
+  }, [shifts])
 
   // Các ngày trong tháng đang xem
   const monthDays = useMemo(() => {
@@ -430,6 +454,25 @@ export default function WorkPage() {
     try {
       await deleteOtherIncome(id)
       setOtherIncomes((prev) => prev.filter((o) => o.id !== id))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // ----- Chọn nhanh & xoá hàng loạt ca làm -----
+  const toggleShiftSelected = (id: number) => {
+    setSelectedShiftIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
+
+  const handleBulkDeleteShifts = async () => {
+    if (selectedShiftIds.length === 0) return
+    const ids = [...selectedShiftIds]
+    setSaving(true)
+    try {
+      await deleteWorkShiftsBulk(ids)
+      setShifts((prev) => prev.filter((s) => !ids.includes(s.id)))
+      setExtras((prev) => prev.filter((e) => !ids.includes(e.work_shift_id)))
+      setSelectedShiftIds([])
     } finally {
       setSaving(false)
     }
@@ -661,7 +704,84 @@ export default function WorkPage() {
               {monthLabel} · Bấm vào ô ca làm để nhập NPC/OT/EXTEND và xem chi tiết.
             </p>
           </div>
+          <button
+            type="button"
+            className={`pg-btn pg-btn--sm${showBulkPanel ? ' pg-btn--primary' : ' pg-btn--ghost'}`}
+            onClick={() => setShowBulkPanel((v) => !v)}
+            aria-expanded={showBulkPanel}
+          >
+            ⚡ Chọn nhanh &amp; xoá ca{selectedShiftIds.length > 0 ? ` (${selectedShiftIds.length})` : ''}
+          </button>
         </div>
+
+        {showBulkPanel && (
+          <div className="pg-bulk-panel">
+            <div className="pg-bulk__bar">
+              <span className="pg-bulk__count">
+                Đã chọn {selectedShiftIds.length}/{monthShifts.length} ca
+              </span>
+              <div className="pg-bulk__head-actions">
+                <button
+                  type="button"
+                  className="pg-btn pg-btn--sm pg-btn--ghost"
+                  onClick={() => setSelectedShiftIds(monthShifts.map((s) => s.id))}
+                  disabled={monthShifts.length === 0}
+                >
+                  Chọn tất cả
+                </button>
+                <button
+                  type="button"
+                  className="pg-btn pg-btn--sm pg-btn--ghost"
+                  onClick={() => setSelectedShiftIds([])}
+                  disabled={selectedShiftIds.length === 0}
+                >
+                  Bỏ chọn
+                </button>
+              </div>
+            </div>
+
+            {monthShifts.length === 0 ? (
+              <p className="pg-empty">Chưa có ca làm trong {monthLabel}.</p>
+            ) : (
+              <ul className="pg-bulk">
+                {monthShifts.map((s) => {
+                  const checked = selectedShiftIds.includes(s.id)
+                  const money = shiftMoney(s)
+                  return (
+                    <li key={s.id} className={`pg-bulk__row${checked ? ' pg-bulk__row--on' : ''}`}>
+                      <label className="pg-bulk__check">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleShiftSelected(s.id)}
+                        />
+                        <span className="pg-bulk__date">
+                          {getWeekdayShort(s.date)} · {formatDay(s.date)}
+                        </span>
+                      </label>
+                      <span className="pg-bulk__shift">{s.shift_type}</span>
+                      <span className="pg-bulk__time">
+                        {String(s.scheduled_start).slice(0, 5)}–{String(s.scheduled_end).slice(0, 5)}
+                      </span>
+                      <span className="pg-bulk__money">{formatVND(money.total)}</span>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+
+            <div className="pg-bulk__footer">
+              <button
+                type="button"
+                className="pg-btn pg-btn--danger"
+                onClick={handleBulkDeleteShifts}
+                disabled={selectedShiftIds.length === 0 || saving}
+              >
+                🗑️ Xoá đã chọn ({selectedShiftIds.length})
+              </button>
+            </div>
+          </div>
+        )}
 
         {shiftsByDate.size === 0 ? (
           <p className="pg-empty">Chưa có lịch làm trong {monthLabel}.</p>

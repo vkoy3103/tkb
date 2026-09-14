@@ -27,6 +27,11 @@ export async function deleteWorkShift(workShiftId: number) {
   await api.delete(`/work-shifts/${workShiftId}`)
 }
 
+export async function deleteWorkShiftsBulk(ids: number[]) {
+  const response = await api.post<{ deleted: number }>('/work-shifts/bulk-delete', { ids })
+  return response.data
+}
+
 export async function syncWorkShiftExtras(
   workShiftId: number,
   payload: { status?: string; npc_hours?: number; ot_hours?: number; extend_count?: number; coefficient?: number },
