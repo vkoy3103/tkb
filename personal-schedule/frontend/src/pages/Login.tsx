@@ -10,12 +10,14 @@ export default function Login() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   const switchMode = (next: 'login' | 'register') => {
     setMode(next)
     setError('')
+    setConfirmPassword('')
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -28,6 +30,11 @@ export default function Login() {
       } else {
         if (password.length < 6) {
           setError('Mật khẩu phải có ít nhất 6 ký tự')
+          setLoading(false)
+          return
+        }
+        if (password !== confirmPassword) {
+          setError('Mật khẩu nhập lại không khớp')
           setLoading(false)
           return
         }
@@ -83,6 +90,19 @@ export default function Login() {
               placeholder={mode === 'register' ? 'Tối thiểu 6 ký tự' : '••••••••'}
             />
           </label>
+
+          {mode === 'register' && (
+            <label className="auth-field">
+              <span>Nhập lại mật khẩu</span>
+              <input
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Nhập lại mật khẩu"
+              />
+            </label>
+          )}
 
           {error && <div className="auth-error">{error}</div>}
 
