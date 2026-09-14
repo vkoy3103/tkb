@@ -11,10 +11,6 @@ interface AuthContextValue {
   register: (payload: {
     email: string
     password: string
-    first_name?: string
-    last_name?: string
-    phone_number?: string
-    schedule_mode?: ScheduleMode
   }) => Promise<void>
   updateScheduleMode: (mode: ScheduleMode) => Promise<void>
   logout: () => Promise<void>
@@ -49,10 +45,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (payload: {
       email: string
       password: string
-      first_name?: string
-      last_name?: string
-      phone_number?: string
-      schedule_mode?: ScheduleMode
     }) => {
       await authApi.register(payload)
       // Đăng ký xong → tự đăng nhập luôn

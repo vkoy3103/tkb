@@ -79,13 +79,13 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Email already exists")
 
     new_user = User(
-        first_name=request.first_name,
-        last_name=request.last_name,
+        first_name=None,
+        last_name=None,
         email=request.email,
-        phone_number=request.phone_number,
+        phone_number=None,
         password_hash=hash_password(request.password),
         role="user",
-        schedule_mode=request.schedule_mode,
+        schedule_mode="PERIOD",
         credit_balance=0,
         is_active=True,
     )

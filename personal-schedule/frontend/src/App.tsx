@@ -11,38 +11,28 @@ import Login from './pages/Login'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import './index.css'
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function AuthLoading() {
+  return (
+    <div className="auth-loading" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
+      Đang tải...
+    </div>
+  )
+}
+
+// Bọc các trang CẦN đăng nhập (không dùng cho Cash balance)
+function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth()
 
-  if (isLoading) {
-    return (
-      <div className="auth-loading" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
-        Đang tải...
-      </div>
-    )
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />
-  }
-
+  if (isLoading) return <AuthLoading />
+  if (!isAuthenticated) return <Navigate to="/login" replace />
   return <>{children}</>
 }
 
 function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth()
 
-  if (isLoading) {
-    return (
-      <div className="auth-loading" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
-        Đang tải...
-      </div>
-    )
-  }
-
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />
-  }
+  if (isLoading) return <AuthLoading />
+  if (isAuthenticated) return <Navigate to="/dashboard" replace />
 
   return <>{children}</>
 }
@@ -60,22 +50,20 @@ export default function App() {
               </PublicOnlyRoute>
             }
           />
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <AppLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="schedule" element={<SchedulePage />} />
-            <Route path="calendar" element={<CalendarPage />} />
-            <Route path="subjects" element={<Subjects />} />
-            <Route path="work" element={<WorkPage />} />
+          {/*
+            AppLayout hiển thị cho mọi người; từng trang tự yêu cầu đăng nhập,
+            RIÊNG /cash-balance không cần đăng nhập.
+          */}
+          <Route path="/" element={<AppLayout />}>
+            <Route index element={<RequireAuth><Navigate to="/dashboard" replace /></RequireAuth>} />
+            <Route path="dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+            <Route path="schedule" element={<RequireAuth><SchedulePage /></RequireAuth>} />
+            <Route path="calendar" element={<RequireAuth><CalendarPage /></RequireAuth>} />
+            <Route path="subjects" element={<RequireAuth><Subjects /></RequireAuth>} />
+            <Route path="work" element={<RequireAuth><WorkPage /></RequireAuth>} />
+            <Route path="settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
+            {/* Cash balance: KHÔNG cần đăng nhập */}
             <Route path="cash-balance" element={<CashBalancePage />} />
-            <Route path="settings" element={<SettingsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

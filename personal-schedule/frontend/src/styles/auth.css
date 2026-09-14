@@ -176,3 +176,24 @@
   color: #94a3b8;
   margin: 4px 0 0;
 }
+
+/* Link vào Cash balance không cần đăng nhập */
+.auth-alt {
+  margin-top: 14px;
+  text-align: center;
+}
+
+.auth-alt__link {
+  border: none;
+  background: none;
+  color: #6d28d9;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 4px 6px;
+}
+
+.auth-alt__link:hover {
+  color: #4c1d95;
+}

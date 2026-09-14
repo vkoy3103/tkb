@@ -237,6 +237,26 @@ body {
   border-color: #fecaca;
 }
 
+/* Khách chưa đăng nhập */
+.sidebar-user__login {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  color: #4338ca;
+  font-weight: 700;
+  font-size: 13px;
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.sidebar-user__login:hover {
+  background: #e0e7ff;
+  border-color: #a5b4fc;
+}
+
 /* =========================
    MAIN CONTENT
 ========================= */
@@ -340,6 +360,21 @@ body {
     background: #fef2f2;
     color: #dc2626;
     border-color: #fecaca;
+  }
+
+  .m-topbar__login {
+    border: 1px solid #c7d2fe;
+    background: #eef2ff;
+    color: #4338ca;
+    font-weight: 700;
+    font-size: 0.8rem;
+    border-radius: 10px;
+    padding: 0.5rem 0.8rem;
+    cursor: pointer;
+  }
+
+  .m-topbar__login:hover {
+    background: #e0e7ff;
   }
 
   .main-content {

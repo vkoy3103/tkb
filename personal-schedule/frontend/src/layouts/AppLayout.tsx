@@ -12,7 +12,7 @@ const links = [
 ]
 
 export default function AppLayout() {
-  const { user, logout } = useAuth()
+  const { user, logout, isAuthenticated } = useAuth()
   const navigate = useNavigate()
 
   const displayName = user ? [user.last_name, user.first_name].filter(Boolean).join(' ') || user.email : ''
@@ -41,14 +41,22 @@ export default function AppLayout() {
             ))}
           </nav>
           <div className="sidebar-user">
-            <div className="sidebar-user__avatar">{avatarText}</div>
-            <div className="sidebar-user__info">
-              <span className="sidebar-user__name">{displayName || user?.email}</span>
-              <span className="sidebar-user__role">{user?.role === 'admin' ? 'Quản trị' : 'Thành viên'}</span>
-            </div>
-            <button type="button" className="sidebar-user__logout" onClick={handleLogout} title="Đăng xuất">
-              ⎋
-            </button>
+            {isAuthenticated ? (
+              <>
+                <div className="sidebar-user__avatar">{avatarText}</div>
+                <div className="sidebar-user__info">
+                  <span className="sidebar-user__name">{displayName || user?.email}</span>
+                  <span className="sidebar-user__role">{user?.role === 'admin' ? 'Quản trị' : 'Thành viên'}</span>
+                </div>
+                <button type="button" className="sidebar-user__logout" onClick={handleLogout} title="Đăng xuất">
+                  ⎋
+                </button>
+              </>
+            ) : (
+              <button type="button" className="sidebar-user__login" onClick={() => navigate('/login')} title="Đăng nhập">
+                ⎆ Đăng nhập
+              </button>
+            )}
           </div>
         </aside>
 
@@ -56,10 +64,18 @@ export default function AppLayout() {
         <header className="m-topbar">
           <span className="m-topbar__brand">🗓️ LOCAL planner</span>
           <div className="m-topbar__actions">
-            <span className="m-topbar__avatar">{avatarText}</span>
-            <button type="button" className="m-topbar__logout" onClick={handleLogout} title="Đăng xuất">
-              ⎋
-            </button>
+            {isAuthenticated ? (
+              <>
+                <span className="m-topbar__avatar">{avatarText}</span>
+                <button type="button" className="m-topbar__logout" onClick={handleLogout} title="Đăng xuất">
+                  ⎋
+                </button>
+              </>
+            ) : (
+              <button type="button" className="m-topbar__login" onClick={() => navigate('/login')}>
+                Đăng nhập
+              </button>
+            )}
           </div>
         </header>
 

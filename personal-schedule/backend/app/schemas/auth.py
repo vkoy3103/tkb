@@ -4,11 +4,6 @@ from pydantic import BaseModel, EmailStr, Field
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=6, max_length=128)
-    first_name: str | None = Field(default=None, max_length=100)
-    last_name: str | None = Field(default=None, max_length=100)
-    phone_number: str | None = Field(default=None, max_length=20)
-    # Chế độ thời khóa biểu: "PERIOD" (theo tiết) hoặc "TIME" (theo giờ)
-    schedule_mode: str = Field(default="PERIOD", pattern="^(PERIOD|TIME)$")
 
 
 class UserOut(BaseModel):

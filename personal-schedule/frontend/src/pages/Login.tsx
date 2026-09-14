@@ -1,7 +1,6 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import type { ScheduleMode } from '../services/authApi'
 import '../styles/auth.css'
 
 export default function Login() {
@@ -11,10 +10,6 @@ export default function Login() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('PERIOD')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -36,7 +31,7 @@ export default function Login() {
           setLoading(false)
           return
         }
-        await register({ email, password, first_name: firstName, last_name: lastName, phone_number: phone, schedule_mode: scheduleMode })
+        await register({ email, password })
       }
       navigate('/dashboard', { replace: true })
     } catch (err) {
@@ -73,44 +68,6 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">
-          {mode === 'register' && (
-            <>
-              <label className="auth-field">
-                <span>Họ</span>
-                <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Nguyễn" />
-              </label>
-              <label className="auth-field">
-                <span>Tên</span>
-                <input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Văn A" />
-              </label>
-              <label className="auth-field">
-                <span>Số điện thoại (tùy chọn)</span>
-                <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0123456789" />
-              </label>
-              <div className="auth-field">
-                <span>Chế độ thời khóa biểu</span>
-                <div className="auth-mode-options">
-                  <button
-                    type="button"
-                    className={`auth-mode-option ${scheduleMode === 'PERIOD' ? 'auth-mode-option--active' : ''}`}
-                    onClick={() => setScheduleMode('PERIOD')}
-                  >
-                    🕐 Theo tiết
-                    <small>Dùng số tiết, cấu hình khung giờ ở Settings</small>
-                  </button>
-                  <button
-                    type="button"
-                    className={`auth-mode-option ${scheduleMode === 'TIME' ? 'auth-mode-option--active' : ''}`}
-                    onClick={() => setScheduleMode('TIME')}
-                  >
-                    ⏱️ Theo giờ
-                    <small>Nhập giờ trực tiếp (vd 07:00-09:00), không cần tiết</small>
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-
           <label className="auth-field">
             <span>Email</span>
             <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ban@example.com" />
@@ -133,7 +90,13 @@ export default function Login() {
             {loading ? 'Đang xử lý...' : mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}
           </button>
         </form>
+
+        <div className="auth-alt">
+          <button type="button" className="auth-alt__link" onClick={() => navigate('/cash-balance')}>
+            💰 Vào Cash balance (không cần đăng nhập)
+          </button>
+        </div>
       </div>
     </div>
   )
-} 
+}

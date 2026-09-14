@@ -34,10 +34,6 @@ export const authApi = {
   async register(payload: {
     email: string
     password: string
-    first_name?: string
-    last_name?: string
-    phone_number?: string
-    schedule_mode?: ScheduleMode
   }): Promise<{ message: string; id: number; email: string }> {
     const { data } = await api.post('/auth/register', payload)
     return data
